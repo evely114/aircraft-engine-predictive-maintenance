@@ -1,0 +1,23 @@
+# Data
+pandas==2.2.2
+numpy==1.26.4
+
+# Machine Learning
+scikit-learn==1.4.2
+xgboost==2.0.3
+shap==0.45.0
+
+# Magia negra - optimización automática
+optuna==3.6.1
+
+# Visualización
+matplotlib==3.8.4
+seaborn==0.13.2
+plotly==5.22.0
+
+# App
+streamlit==1.35.0
+
+# Utilidades
+joblib==1.4.2
+python-dotenv==1.0.1
