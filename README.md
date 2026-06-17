@@ -11,7 +11,7 @@ Las aerolíneas gastan millones en mantenimiento no planificado. Un motor que fa
 
 **Objetivo:** predecir si un motor de avión va a fallar en los próximos 30 ciclos operacionales, usando datos de sensores en tiempo real — para que el equipo de mantenimiento actúe antes de que ocurra el fallo.
 
-**A quién le sirve:** aerolíneas, empresas MRO (Maintenance, Repair & Overhaul), fabricantes como Boeing, Airbus o Rolls-Royce.
+**A quién le sirve:** aerolíneas, empresas MRO (Maintenance, Repair & Overhaul), fabricantes como Boeing, Airbus o Rolls-Royce y aerolineas en general.
 
 ---
 
