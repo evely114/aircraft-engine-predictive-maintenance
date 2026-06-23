@@ -339,17 +339,6 @@ with tab1:
         st.pyplot(fig)
         plt.close(fig)
 
-        st.markdown("""
-        <div style="background:#0a1628;border:1px solid #1e2d4a;border-left:3px solid #0ea5e9;
-             border-radius:6px;padding:10px 14px;margin-top:10px;font-size:11px;color:#64748b;line-height:1.7">
-            <span style="color:#0ea5e9;font-weight:600">ℹ El simulador</span> controla los 5 sensores más críticos.
-            El gráfico SHAP muestra cómo el modelo evalúa las 28 features reales —
-            incluyendo <span style="color:#94a3b8">medias móviles</span> que capturan
-            la tendencia de degradación de cada sensor en los últimos 10 ciclos,
-            no solo su valor puntual.
-        </div>
-        """, unsafe_allow_html=True)
-
 # ══════════════════════════════════════════════
 # TAB 2 — RENDIMIENTO
 # ══════════════════════════════════════════════
