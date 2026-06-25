@@ -1,121 +1,141 @@
 # 📋 Plan de Trabajo — Aircraft Engine Predictive Maintenance
 
 ## Stack definitivo
-- **Proyecto principal:** Mantenimiento predictivo motores de avión (NASA C-MAPSS)
+- **Proyecto principal:** Mantenimiento predictivo motores de avión (NASA C-MAPSS — 4 subconjuntos)
 - **Plan B:** Riesgo crediticio (Home Credit Default Risk)
 - **Modelo:** Regresión Logística (baseline) → XGBoost + Optuna + SHAP
-- **Producto:** Streamlit
+- **Producto:** Streamlit (3 pestañas: Predicción · Rendimiento · Valor de negocio)
 
 ---
 
-## ✅ FASE 0 — Setup inicial (HOY)
+## ✅ FASE 0 — Setup inicial
 
-- [ ] Crear repositorio en GitHub: `aircraft-engine-maintenance`
-- [ ] Subir estructura de carpetas, README y requirements.txt
-- [ ] Descargar dataset NASA C-MAPSS de Kaggle → `data/raw/`
-- [ ] Descargar dataset Home Credit (plan B) → guardarlo aparte
-- [ ] Crear entorno virtual e instalar requirements
-- [ ] Primer commit: `feat: project structure and README`
-
----
-
-## 📊 FASE 1 — EDA (notebooks/01_eda.ipynb)
-
-- [ ] Cargar los 4 archivos del dataset (train_FD001 a train_FD004)
-- [ ] Entender la estructura: motores, ciclos, sensores
-- [ ] Calcular el RUL (Remaining Useful Life) de cada motor
-- [ ] Visualizar la degradación de sensores a lo largo del tiempo
-- [ ] Identificar qué sensores son más informativos (correlación con RUL)
-- [ ] Detectar sensores con varianza cero (inútiles, hay varios)
-- [ ] Al menos 6 gráficos con conclusiones en Markdown
-- [ ] Commit: `feat: EDA notebook completo`
+- [x] Crear repositorio en GitHub: `aircraft-engine-predictive-maintenance`
+- [x] Estructura de carpetas completa
+- [x] README inicial
+- [x] Descargar dataset NASA C-MAPSS (FD001, FD002, FD003, FD004)
+- [x] Entorno virtual e instalación de dependencias
+- [x] Primer commit
 
 ---
 
-## 🔧 FASE 2 — Preprocesamiento (notebooks/02_preprocesamiento.ipynb)
+## ✅ FASE 1 — EDA (notebooks/01_eda.ipynb)
 
-- [ ] Crear la variable objetivo: `target = 1 si RUL < 30, else 0`
-- [ ] Eliminar sensores con varianza cero
-- [ ] Normalizar lecturas de sensores (StandardScaler)
-- [ ] Feature engineering: medias móviles de sensores (tendencia de degradación)
-- [ ] Split train/test estratificado (80/20)
-- [ ] Guardar datos procesados en `data/processed/`
-- [ ] Commit: `feat: preprocessing and feature engineering`
-
----
-
-## 🧠 FASE 3 — Modelado (notebooks/03_modelado.ipynb)
-
-### Baseline
-- [ ] Entrenar Regresión Logística
-- [ ] Evaluar: AUC-ROC, Precision, Recall
-- [ ] Anotar resultados como referencia
-
-### Modelo principal
-- [ ] Entrenar XGBoost con parámetros por defecto
-- [ ] Comparar con baseline
-- [ ] ⚡ MAGIA NEGRA: Optuna para optimización de hiperparámetros
-- [ ] Cross-validation estratificada de 5 folds
-- [ ] Curva ROC y matriz de confusión
-- [ ] ⚡ MAGIA NEGRA: SHAP — feature importance global (beeswarm plot)
-- [ ] ⚡ MAGIA NEGRA: SHAP — explicación individual de un motor en riesgo
-- [ ] Guardar modelo en `models/xgboost_model.pkl`
-- [ ] Commit: `feat: baseline + XGBoost + Optuna + SHAP`
+- [x] Cargar FD001 y revisar estructura
+- [x] Calcular RUL (Remaining Useful Life)
+- [x] Diccionario de sensores con significado físico real
+- [x] Visualización de degradación de sensores
+- [x] Sensores con varianza cero identificados (10 sensores eliminados)
+- [x] Correlación de sensores con el RUL
+- [x] Resumen del EDA
+- [x] Commit: `feat: EDA notebook completo`
 
 ---
 
-## 🖥️ FASE 4 — App Streamlit (app/app.py)
+## ✅ FASE 2 — Preprocesamiento (notebooks/02_preprocesamiento.ipynb)
 
-- [ ] Subir CSV de un motor nuevo → predicción en tiempo real
-- [ ] Indicador visual: motor OK / en riesgo (con probabilidad)
-- [ ] Gráfico de degradación de sensores del motor analizado
-- [ ] ⚡ MAGIA NEGRA: SHAP waterfall plot — por qué este motor está en riesgo
-- [ ] README actualizado con captura de pantalla
-- [ ] Commit: `feat: streamlit app working`
+- [x] Cargar los 4 subconjuntos (FD001 + FD002 + FD003 + FD004)
+- [x] Motor IDs únicos entre subconjuntos (offset 0/1000/2000/3000)
+- [x] KMeans para detectar 6 condiciones operativas automáticamente
+- [x] Normalización por condición operativa (no global)
+- [x] Features de medias móviles (ventana 10 ciclos)
+- [x] Target binario: RUL < 30 → EN RIESGO
+- [x] Split train/test estratificado (80/20)
+- [x] Guardar datos procesados en data/processed/
+- [x] Commit: `feat: preprocessing with 4 subsets, KMeans, condition normalization`
 
----
-
-## 🎤 FASE 5 — Presentación
-
-- [ ] Slide 1: El problema — coste de un fallo de motor no detectado
-- [ ] Slide 2: Los datos — qué son los sensores NASA C-MAPSS
-- [ ] Slide 3: El modelo — baseline vs XGBoost, por qué el Recall es clave
-- [ ] Slide 4: Demo en vivo de la app
-- [ ] Slide 5: Próximos pasos (tiempo real, más modelos, API)
+**Resultado:** 709 motores · 160.359 registros · 6 condiciones · 28 features
 
 ---
 
-## ⚡ Momentos de magia negra (presta atención aquí)
+## ✅ FASE 3 — Modelado (notebooks/03_modelado.ipynb)
 
-| Momento | Técnica | Por qué es avanzado |
-|---------|---------|---------------------|
-| Notebook 02 | Medias móviles como features | Captura tendencias temporales de degradación |
-| Notebook 03 | Optuna | Optimización bayesiana automática de hiperparámetros |
-| Notebook 03 | Cross-validation estratificada | Evaluación robusta sin data leakage |
-| Notebook 03 | SHAP beeswarm | Feature importance global con dirección del efecto |
-| Notebook 03 | SHAP waterfall | Explicación individual motor a motor |
-| App | SHAP en tiempo real | Explicabilidad en producción |
-
----
-
-## 🗓️ Estimación de tiempos
-
-| Fase | Tiempo estimado |
-|------|----------------|
-| Setup inicial | 1-2 horas |
-| EDA | 3-4 horas |
-| Preprocesamiento | 3-4 horas |
-| Modelado + SHAP + Optuna | 5-7 horas |
-| App Streamlit | 3-4 horas |
-| Presentación | 2-3 horas |
-| **Total** | **~20 horas** |
+- [x] Cargar datos procesados
+- [x] Baseline — Regresión Logística (AUC-ROC: 0.9881)
+- [x] XGBoost con scale_pos_weight (AUC-ROC: 0.9922)
+- [x] Optuna — optimización bayesiana (30 pruebas · CV 5 folds)
+- [x] Modelo final XGBoost + Optuna (AUC-ROC: 0.9936, Recall: 91.5%)
+- [x] Gráfico comparativo de modelos
+- [x] Curva ROC y matriz de confusión
+- [x] SHAP — feature importance global (beeswarm)
+- [x] SHAP — explicación individual (waterfall)
+- [x] Expected Value Framework (+$145.3M valor neto)
+- [x] Guardar modelo en models/xgboost_model.pkl
+- [x] Commit: `feat: modeling complete - XGBoost + Optuna + SHAP + Expected Value`
 
 ---
 
-## 💡 Tips para la presentación
+## ✅ FASE 4 — App Streamlit (app/app.py)
 
-1. **Abre con el problema humano** — "Un fallo de motor en vuelo puede costar vidas y millones"
-2. **Explica el Recall** — "Preferimos hacer mantenimiento de más que dejar pasar un fallo real"
-3. **Muestra el SHAP** — "Este motor está en riesgo porque el sensor 11 lleva 20 ciclos degradándose"
-4. **Demo en vivo** — sube un CSV y muestra la predicción en tiempo real
-5. **Habla de negocio** — "Cada fallo no detectado cuesta X€ en AOG (Aircraft on Ground)"
+- [x] Diseño oscuro profesional (tema aeronáutico)
+- [x] Pestaña 1 — Predicción:
+  - [x] Botones de escenario rápido (Motor nuevo / Motor en riesgo)
+  - [x] Sliders de 5 sensores críticos con nombres descriptivos
+  - [x] Resultado visual EN RIESGO / SEGURO con probabilidad
+  - [x] Sensores críticos en rojo cuando hay riesgo
+  - [x] Recomendaciones en rojo cuando hay alerta
+  - [x] Gráfico SHAP waterfall individual
+  - [x] Nota explicativa sobre medias móviles
+- [x] Pestaña 2 — Rendimiento del modelo:
+  - [x] Métricas AUC-ROC, Recall, Precision, F1
+  - [x] Comparativa de los 3 modelos
+  - [x] Matriz de confusión con columna resaltada según predicción actual
+  - [x] Stack tecnológico
+- [x] Pestaña 3 — Valor de negocio:
+  - [x] Expected Value +$145.3M
+  - [x] Tabla por categoría
+  - [x] Gráfico de barras económico
+  - [x] Pitch listo para copiar
+- [x] Commit: `feat: streamlit app complete - dark theme, 3 tabs, SHAP, Expected Value`
+
+---
+
+## ✅ FASE 5 — Documentación
+
+- [x] README completo con descripción de C-MAPSS
+- [x] Componentes del motor y sus sensores
+- [x] Métricas actualizadas (4 subconjuntos)
+- [x] PITCH.md con estructura 7-10 minutos
+- [x] Preguntas frecuentes de entrevista
+- [x] PLAN_DE_TRABAJO.md actualizado
+- [x] Commit: `docs: complete documentation`
+
+---
+
+## ⏳ FASE 6 — Presentación (jueves)
+
+- [ ] Slides PDF listos (presentacion_aeropredict.pdf — 12 slides)
+- [ ] Practicar pitch 2-3 veces en voz alta
+- [ ] Demo de la app probada (botón "Motor en riesgo" funciona)
+- [ ] GitHub abierto y visible
+- [ ] Números memorizados (ver abajo)
+
+---
+
+## 🔢 Números clave para memorizar
+
+| Dato | Valor |
+|------|-------|
+| Motores en entrenamiento | 709 |
+| Registros totales | 160.359 |
+| Condiciones operativas | 6 |
+| Subconjuntos usados | 4 (FD001+FD002+FD003+FD004) |
+| Features del modelo | 28 |
+| AUC-ROC final | 0.9936 |
+| Recall | 91.5% |
+| Precision | 86.8% |
+| Fallos detectados | 563 de 600 |
+| Valor neto del modelo | +$145.3M |
+| Ahorro vs sin modelo | +$445.3M |
+| Umbral de riesgo | RUL < 30 ciclos |
+
+---
+
+## 💡 Tips para la presentación del jueves
+
+1. **Abre con el problema humano** — "$50B en mantenimiento, 30% por fallos no planificados"
+2. **Demo en vivo primero** — muestra la app antes de explicar el código
+3. **Explica el trade-off** — "las métricas bajaron ligeramente al usar 4 subconjuntos porque el problema es más complejo, pero el modelo es mucho más robusto"
+4. **Muestra el SHAP** — "s4 lleva ciclos subiendo anormalmente — eso es lo que ve el técnico"
+5. **Cierra con dinero** — "$145 millones de valor generado"
+6. **No hables de código** — habla de negocio, sensores físicos y valor económico

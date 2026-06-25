@@ -697,13 +697,14 @@ with tab1:
             data=datos_motor.iloc[0],
             feature_names=feature_names_legibles
         )
+        # Limpiar cualquier figura anterior antes de crear la nueva
         plt.rcParams.update({'figure.max_open_warning': 0})
         plt.close('all')
+        fig, ax = plt.subplots(figsize=(7, 5))
+        fig.patch.set_facecolor('#0a0e1a')
         shap.plots.waterfall(explanation, show=False, max_display=min(8, len(feature_names)))
-        fig_shap = plt.gcf()
-        fig_shap.patch.set_facecolor('#0a0e1a')
-        fig_shap.set_size_inches(7, 5)
-        st.pyplot(fig_shap, use_container_width=True, clear_figure=True)
+        fig.set_size_inches(7, 5)
+        st.pyplot(fig, use_container_width=True, clear_figure=True)
         plt.close('all')
 
         st.markdown("""

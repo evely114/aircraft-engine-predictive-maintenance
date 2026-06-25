@@ -285,7 +285,7 @@ with tab1:
         st.session_state['sim_ciclo'] = sim_ciclo_pre
         # Inicializar historial solo si acaba de empezar (no existía antes)
         if 'sim_historial' not in st.session_state:
-            st.session_state['sim_historial'] = {}
+            st.session_state['sim_historial'] = []
         fila_sim_pre = motor_demo_df.iloc[sim_ciclo_pre][feature_names].to_dict()
         st.session_state['fila_preset'] = fila_sim_pre
         st.session_state['modo_preset'] = 'real'
@@ -311,9 +311,13 @@ with tab1:
     # Guardar en historial si simulación activa
     if st.session_state.get('simular_motor', False):
         sim_ciclo_actual = st.session_state.get('sim_ciclo', 0)
-        historial = st.session_state.get('sim_historial', {})
+        historial = st.session_state.get('sim_historial', [])
         ciclo_num_actual = int(motor_demo_df.iloc[sim_ciclo_actual]['ciclo']) if sim_ciclo_actual < len(motor_demo_df) else sim_ciclo_actual
-        historial[ciclo_num_actual] = {'ciclo': ciclo_num_actual, 'prob': prob_pct}
+        # Actualizar o añadir
+        if len(historial) <= sim_ciclo_actual:
+            historial.append({'ciclo': ciclo_num_actual, 'prob': prob_pct})
+        else:
+            historial[sim_ciclo_actual] = {'ciclo': ciclo_num_actual, 'prob': prob_pct}
         st.session_state['sim_historial'] = historial
 
 
@@ -394,7 +398,7 @@ with tab1:
             if st.button("🎬 Simular motor real", use_container_width=True):
                 st.session_state['simular_motor'] = True
                 st.session_state['sim_ciclo'] = 0
-                st.session_state['sim_historial'] = {}
+                st.session_state['sim_historial'] = []
                 st.session_state.pop('motor_real', None)
                 st.rerun()
 
@@ -434,7 +438,7 @@ with tab1:
                         </div>
                     </div>
                     <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:{color_sim}">
-                        {int((sim_ciclo/(total_ciclos-1))*100)}% completado
+                        {int((sim_ciclo/total_ciclos)*100)}% completado
                     </div>
                 </div>
             </div>
@@ -470,12 +474,20 @@ with tab1:
                         st.session_state[k] = 0.0
                     st.rerun()
 
+            # Auto-avance
+            if st.session_state.get('auto_play', False):
+                if sim_ciclo < total_ciclos - 1:
+                    import time
+                    time.sleep(0.05)
+                    st.session_state['sim_ciclo'] = sim_ciclo + 5
+                    st.rerun()
+                else:
+                    st.session_state['auto_play'] = False
             # Gráfico evolución + predicción vs realidad
-            historial = st.session_state.get('sim_historial', {})
+            historial = st.session_state.get('sim_historial', [])
             if len(historial) > 1:
-                entradas = [historial[k] for k in sorted(historial.keys())]
-                ciclos_h = [h['ciclo'] for h in entradas]
-                probs_h  = [h['prob']  for h in entradas]
+                ciclos_h = [h['ciclo'] for h in historial]
+                probs_h  = [h['prob']  for h in historial]
 
                 def _col_h(p):
                     if p < 15:   return '#22c55e'
@@ -484,8 +496,8 @@ with tab1:
 
                 ciclo_riesgo_real = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min())
 
-                prob_actual_color = _col_h(prob_pct)
-                st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{prob_pct:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
+                prob_actual_color = _col_h(probs_h[-1])
+                st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{probs_h[-1]:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
 
                 plt.close('all')
                 fig_sim, ax_sim = plt.subplots(figsize=(6, 3.0))
@@ -493,35 +505,22 @@ with tab1:
                 ax_sim.set_facecolor('#0f1829')
                 max_ciclo = int(motor_demo_df['ciclo'].max())
 
-                ciclo_max_visitado = max(ciclos_h)
-                if ciclo_max_visitado < max_ciclo * 0.85:
-                    xlim_max = max(ciclo_max_visitado + 30, 80)
-                else:
-                    xlim_max = max_ciclo
+                # Área sombreada roja = zona de fallo real NASA
+                ax_sim.axvspan(ciclo_riesgo_real, max_ciclo, alpha=0.15, color='#ef4444', label='Zona fallo NASA')
+                ax_sim.axvline(ciclo_riesgo_real, color='#ef4444', linewidth=1.5, linestyle='--', alpha=0.7)
+                ax_sim.text(ciclo_riesgo_real+2, 97, f'Fallo NASA c.{ciclo_riesgo_real}', fontsize=6.5, color='#ef4444', alpha=0.8)
 
-                # Área sombreada roja = zona de fallo real NASA (solo si está en el rango visible)
-                if xlim_max >= ciclo_riesgo_real:
-                    ax_sim.axvspan(ciclo_riesgo_real, max_ciclo, alpha=0.15, color='#ef4444', label='Zona fallo NASA')
-                    ax_sim.axvline(ciclo_riesgo_real, color='#ef4444', linewidth=1.5, linestyle='--', alpha=0.7)
-                    ax_sim.text(ciclo_riesgo_real+2, 97, f'Fallo NASA c.{ciclo_riesgo_real}', fontsize=6.5, color='#ef4444', alpha=0.8)
-
-                # Línea predicción coloreada — solo hasta el ciclo actual
-                sim_idx_g = st.session_state.get('sim_ciclo', 0)
-                ciclo_actual_g = int(motor_demo_df.iloc[min(sim_idx_g, len(motor_demo_df)-1)]['ciclo'])
-                ciclos_h_vis = [c for c in ciclos_h if c <= ciclo_actual_g]
-                probs_h_vis  = [probs_h[i] for i, c in enumerate(ciclos_h) if c <= ciclo_actual_g]
-
-                for i in range(len(ciclos_h_vis)-1):
-                    ax_sim.plot(ciclos_h_vis[i:i+2], probs_h_vis[i:i+2],
-                               color=_col_h(probs_h_vis[i]), linewidth=2, alpha=0.95)
+                # Línea predicción coloreada
+                for i in range(len(ciclos_h)-1):
+                    ax_sim.plot(ciclos_h[i:i+2], probs_h[i:i+2],
+                               color=_col_h(probs_h[i]), linewidth=2, alpha=0.95)
 
                 # Punto actual
-                if ciclos_h_vis:
-                    ax_sim.scatter([ciclos_h_vis[-1]], [probs_h_vis[-1]],
-                                  color=_col_h(probs_h_vis[-1]), s=60, zorder=5)
+                ax_sim.scatter([ciclos_h[-1]], [probs_h[-1]],
+                              color=_col_h(probs_h[-1]), s=60, zorder=5)
 
                 ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle=':', alpha=0.5)
-                ax_sim.set_xlim(1, xlim_max)
+                ax_sim.set_xlim(1, max_ciclo)
                 ax_sim.set_ylim(-3, 108)
                 ax_sim.set_xlabel('Ciclo', fontsize=8, color='#64748b')
                 ax_sim.set_ylabel('Prob. fallo (%)', fontsize=8, color='#64748b')
@@ -530,7 +529,7 @@ with tab1:
                 ax_sim.spines['right'].set_visible(False)
                 for spine in ['bottom', 'left']:
                     ax_sim.spines[spine].set_color('#1e2d4a')
-                plt.tight_layout()
+                fig_sim.subplots_adjust(left=0.12, right=0.97, top=0.95, bottom=0.22)
                 st.pyplot(fig_sim, use_container_width=True, clear_figure=True)
                 plt.close('all')
 
@@ -584,18 +583,6 @@ with tab1:
                     <div style="font-size:10px;color:{color_a};font-weight:600">{acierto}</div>
                 </div>
                 ''', unsafe_allow_html=True)
-
-        # Auto-avance — después de renderizar el gráfico
-        if st.session_state.get('auto_play', False):
-            sim_ciclo_now = st.session_state.get('sim_ciclo', 0)
-            total_ciclos_now = len(motor_demo_df)
-            if sim_ciclo_now < total_ciclos_now - 1:
-                import time
-                time.sleep(0.05)
-                st.session_state['sim_ciclo'] = sim_ciclo_now + 5
-                st.rerun()
-            else:
-                st.session_state['auto_play'] = False
 
         st.markdown("---")
 
@@ -697,13 +684,14 @@ with tab1:
             data=datos_motor.iloc[0],
             feature_names=feature_names_legibles
         )
+        # Limpiar cualquier figura anterior antes de crear la nueva
         plt.rcParams.update({'figure.max_open_warning': 0})
         plt.close('all')
+        fig, ax = plt.subplots(figsize=(7, 5))
+        fig.patch.set_facecolor('#0a0e1a')
         shap.plots.waterfall(explanation, show=False, max_display=min(8, len(feature_names)))
-        fig_shap = plt.gcf()
-        fig_shap.patch.set_facecolor('#0a0e1a')
-        fig_shap.set_size_inches(7, 5)
-        st.pyplot(fig_shap, use_container_width=True, clear_figure=True)
+        fig.set_size_inches(7, 5)
+        st.pyplot(fig, use_container_width=True, clear_figure=True)
         plt.close('all')
 
         st.markdown("""
@@ -1024,13 +1012,6 @@ with tab2:
                 <span style="color:#f59e0b;font-weight:700">51</span> — motores sanos marcados como riesgo por error <em>(falsas alarmas)</em>
             </div>
         </div>
-        <div style="background:#0a1628;border:1px solid #1e2d4a;border-left:3px solid #f59e0b;
-             border-radius:6px;padding:10px 14px;margin-top:8px;font-size:11px;color:#64748b;line-height:1.8">
-            📋 <strong style="color:#f59e0b">Estos números son históricos</strong> — resultado del examen final del modelo
-            sobre 4.127 registros reales de la NASA que nunca había visto durante el entrenamiento.<br>
-            🔵 <strong style="color:#0ea5e9">La columna azul</strong> es en tiempo real — marca dónde cae la predicción
-            del motor que tienes actualmente en los sliders.
-        </div>
         """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1054,41 +1035,9 @@ with tab3:
         """, unsafe_allow_html=True)
 
     col_v1, col_v2, col_v3 = st.columns(3)
-    with col_v1:
-        st.markdown("""
-        <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
-            <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Valor neto del modelo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$145.3M</div>
-            <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
-                Beneficio real después de descontar los costes de <strong style="color:#e2e8f0">falsas alarmas</strong>
-                y <strong style="color:#e2e8f0">fallos no detectados</strong>. Lo que gana la aerolínea usando el modelo.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_v2:
-        st.markdown("""
-        <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
-            <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Ahorro vs sin modelo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$445.3M</div>
-            <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
-                Diferencia entre tener el modelo y no tener nada.
-                Sin sistema predictivo, los <strong style="color:#e2e8f0">600 fallos ocurren sin avisar</strong>
-                a $500K cada uno. El ahorro total frente a no tener ningún sistema es de <strong style="color:#e2e8f0">$445.3M</strong>.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_v3:
-        st.markdown("""
-        <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
-            <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Fallos evitados</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">563 / 600</div>
-            <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
-                De 600 motores en riesgo real, el modelo detectó <strong style="color:#22c55e">563 a tiempo</strong>.
-                Los <strong style="color:#ef4444">37 restantes</strong> no mostraban patrón claro de degradación
-                — el límite inevitable de cualquier modelo. <span style="color:#22c55e">Recall 91.4%</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    col_v1.metric("Valor neto del modelo", "+$145.3M")
+    col_v2.metric("Ahorro vs sin modelo", "+$445.3M")
+    col_v3.metric("Fallos evitados", "563 / 600", delta="Recall 91.4%")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_tbl, col_chart = st.columns([1, 2], gap="large")
@@ -1104,10 +1053,10 @@ with tab3:
             st.markdown(f"""
             <div class="mrow">
                 <div>
-                    <div style="font-size:13px;color:#e2e8f0;font-weight:500">{nombre}</div>
-                    <div style="font-size:12px;color:#475569;margin-top:2px">{detalle}</div>
+                    <div style="font-size:12px;color:#e2e8f0;font-weight:500">{nombre}</div>
+                    <div style="font-size:10px;color:#475569;margin-top:2px">{detalle}</div>
                 </div>
-                <div class="mval {cls}" style="font-size:15px">{total}</div>
+                <div class="mval {cls}" style="font-size:14px">{total}</div>
             </div>
             """, unsafe_allow_html=True)
 
