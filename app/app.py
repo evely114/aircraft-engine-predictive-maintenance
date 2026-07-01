@@ -849,7 +849,7 @@ with tab1:
                 if _hito_n is None and c >= _ciclo_riesgo_ldt: _hito_n = (c, p)
 
             def _mini_svg(hasta_ciclo, color_punto, marcar_ciclo=None, marcar_color='#ffffff'):
-                W, H, PAD = 200, 50, 6
+                W, H, PAD = 200, 35, 5
                 segs = []
                 prev_x = prev_y = None
                 for k in sorted(_historial_ldt.keys()):
@@ -869,7 +869,7 @@ with tab1:
                     segs.append(f'<line x1="{mx:.1f}" y1="{PAD}" x2="{mx:.1f}" y2="{H-2}" stroke="{marcar_color}" stroke-width="1.2" stroke-dasharray="3,2" opacity="0.8"/>')
                 if prev_x is not None:
                     segs.append(f'<circle cx="{prev_x:.1f}" cy="{prev_y:.1f}" r="3" fill="{color_punto}"/>')
-                return f'<svg viewBox="0 0 {W} {H}" width="100%" style="display:block"><rect width="{W}" height="{H}" fill="#0f1829" rx="4"/>{"".join(segs)}</svg>'
+                return f'<svg viewBox="0 0 {W} {H}" width="100%" height="40" style="display:block"><rect width="{W}" height="{H}" fill="#0f1829" rx="4"/>{"".join(segs)}</svg>'
 
             if _hito_a or _hito_r or _hito_n:
                 ldt_html = '<div style="background:#0a0e1a;border:1px solid #1e2d4a;border-radius:8px;padding:12px 14px;margin:10px 0">'
@@ -882,9 +882,9 @@ with tab1:
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0e00;border:1.5px solid #f59e0b;'
                         f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">⚠️</div>'
                         f'<div style="flex:1;min-width:0">'
-                        f'<div style="font-size:11px;margin-bottom:4px"><span style="color:#f59e0b;font-weight:600">c.{_hito_a[0]}</span>'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#f59e0b;font-weight:600">c.{_hito_a[0]}</span>'
                         f' <span style="color:#64748b">Primera alerta · {_hito_a[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_a[0]} vuelos antes NASA</span></div>'
-                        f'<div style="border-radius:4px;overflow:hidden">{svg}</div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
                         f'</div></div>'
                     )
                 if _hito_r:
@@ -894,9 +894,9 @@ with tab1:
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0808;border:1.5px solid #ef4444;'
                         f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🚨</div>'
                         f'<div style="flex:1;min-width:0">'
-                        f'<div style="font-size:11px;margin-bottom:4px"><span style="color:#ef4444;font-weight:600">c.{_hito_r[0]}</span>'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#ef4444;font-weight:600">c.{_hito_r[0]}</span>'
                         f' <span style="color:#64748b">Riesgo alto · {_hito_r[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_r[0]} vuelos antes NASA</span></div>'
-                        f'<div style="border-radius:4px;overflow:hidden">{svg}</div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
                         f'</div></div>'
                     )
                 if _hito_n:
@@ -906,9 +906,9 @@ with tab1:
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#0f0a1a;border:1.5px solid #a855f7;'
                         f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🛑</div>'
                         f'<div style="flex:1;min-width:0">'
-                        f'<div style="font-size:11px;margin-bottom:4px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
                         f' <span style="color:#64748b">NASA certifica el fallo</span></div>'
-                        f'<div style="border-radius:4px;overflow:hidden">{svg}</div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
                         f'</div></div>'
                     )
                 ldt_html += '</div></div>'

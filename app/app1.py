@@ -285,7 +285,7 @@ with tab1:
         st.session_state['sim_ciclo'] = sim_ciclo_pre
         # Inicializar historial solo si acaba de empezar (no existía antes)
         if 'sim_historial' not in st.session_state:
-            st.session_state['sim_historial'] = []
+            st.session_state['sim_historial'] = {}
         fila_sim_pre = motor_demo_df.iloc[sim_ciclo_pre][feature_names].to_dict()
         st.session_state['fila_preset'] = fila_sim_pre
         st.session_state['modo_preset'] = 'real'
@@ -311,13 +311,9 @@ with tab1:
     # Guardar en historial si simulación activa
     if st.session_state.get('simular_motor', False):
         sim_ciclo_actual = st.session_state.get('sim_ciclo', 0)
-        historial = st.session_state.get('sim_historial', [])
+        historial = st.session_state.get('sim_historial', {})
         ciclo_num_actual = int(motor_demo_df.iloc[sim_ciclo_actual]['ciclo']) if sim_ciclo_actual < len(motor_demo_df) else sim_ciclo_actual
-        # Actualizar o añadir
-        if len(historial) <= sim_ciclo_actual:
-            historial.append({'ciclo': ciclo_num_actual, 'prob': prob_pct})
-        else:
-            historial[sim_ciclo_actual] = {'ciclo': ciclo_num_actual, 'prob': prob_pct}
+        historial[ciclo_num_actual] = {'ciclo': ciclo_num_actual, 'prob': prob_pct}
         st.session_state['sim_historial'] = historial
 
 
@@ -398,7 +394,8 @@ with tab1:
             if st.button("🎬 Simular motor real", use_container_width=True):
                 st.session_state['simular_motor'] = True
                 st.session_state['sim_ciclo'] = 0
-                st.session_state['sim_historial'] = []
+                st.session_state['sim_historial'] = {}
+                st.session_state['primera_anomalia_detectada'] = False
                 st.session_state.pop('motor_real', None)
                 st.rerun()
 
@@ -474,20 +471,12 @@ with tab1:
                         st.session_state[k] = 0.0
                     st.rerun()
 
-            # Auto-avance
-            if st.session_state.get('auto_play', False):
-                if sim_ciclo < total_ciclos - 1:
-                    import time
-                    time.sleep(0.05)
-                    st.session_state['sim_ciclo'] = sim_ciclo + 5
-                    st.rerun()
-                else:
-                    st.session_state['auto_play'] = False
             # Gráfico evolución + predicción vs realidad
-            historial = st.session_state.get('sim_historial', [])
+            historial = st.session_state.get('sim_historial', {})
             if len(historial) > 1:
-                ciclos_h = [h['ciclo'] for h in historial]
-                probs_h  = [h['prob']  for h in historial]
+                entradas = [historial[k] for k in sorted(historial.keys())]
+                ciclos_h = [h['ciclo'] for h in entradas]
+                probs_h  = [h['prob']  for h in entradas]
 
                 def _col_h(p):
                     if p < 15:   return '#22c55e'
@@ -496,20 +485,31 @@ with tab1:
 
                 ciclo_riesgo_real = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min())
 
-                prob_actual_color = _col_h(probs_h[-1])
-                st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{probs_h[-1]:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
+                prob_actual_color = _col_h(prob_pct)
+                st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{prob_pct:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
 
-                plt.close('all')
-                fig_sim, ax_sim = plt.subplots(figsize=(6, 3.0))
+                import matplotlib.figure
+                fig_sim = matplotlib.figure.Figure(figsize=(6, 3.0))
                 fig_sim.patch.set_facecolor('#0a0e1a')
+                ax_sim = fig_sim.add_subplot(111)
                 ax_sim.set_facecolor('#0f1829')
                 max_ciclo = int(motor_demo_df['ciclo'].max())
 
-                ciclo_actual_vis = ciclos_h[-1]
-                if ciclo_actual_vis < max_ciclo * 0.85:
-                    xlim_max = max(ciclo_actual_vis + 30, 80)
+                ciclo_max_visitado = max(ciclos_h)
+                if ciclo_max_visitado < max_ciclo * 0.85:
+                    xlim_max = max(ciclo_max_visitado + 30, 80)
                 else:
                     xlim_max = max_ciclo
+
+                # Zonas de color horizontal
+                ax_sim.axhspan(0,  15, alpha=0.08, color='#22c55e')
+                ax_sim.axhspan(15, 50, alpha=0.06, color='#f59e0b')
+                ax_sim.axhspan(50, 108, alpha=0.06, color='#ef4444')
+                ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.axhline(50, color='#ef4444', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.text(2, 5,   'SEGURO',    fontsize=6.5, color='#22c55e', alpha=0.6, fontweight='600')
+                ax_sim.text(2, 30,  'ALERTA',    fontsize=6.5, color='#f59e0b', alpha=0.6, fontweight='600')
+                ax_sim.text(2, 75,  'EN RIESGO', fontsize=6.5, color='#ef4444', alpha=0.6, fontweight='600')
 
                 # Área sombreada roja = zona de fallo real NASA (solo si está en el rango visible)
                 if xlim_max >= ciclo_riesgo_real:
@@ -517,16 +517,21 @@ with tab1:
                     ax_sim.axvline(ciclo_riesgo_real, color='#ef4444', linewidth=1.5, linestyle='--', alpha=0.7)
                     ax_sim.text(ciclo_riesgo_real+2, 97, f'Fallo NASA c.{ciclo_riesgo_real}', fontsize=6.5, color='#ef4444', alpha=0.8)
 
-                # Línea predicción coloreada
-                for i in range(len(ciclos_h)-1):
-                    ax_sim.plot(ciclos_h[i:i+2], probs_h[i:i+2],
-                               color=_col_h(probs_h[i]), linewidth=2, alpha=0.95)
+                # Línea predicción coloreada — solo hasta el ciclo actual
+                sim_idx_g = st.session_state.get('sim_ciclo', 0)
+                ciclo_actual_g = int(motor_demo_df.iloc[min(sim_idx_g, len(motor_demo_df)-1)]['ciclo'])
+                ciclos_h_vis = [c for c in ciclos_h if c <= ciclo_actual_g]
+                probs_h_vis  = [probs_h[i] for i, c in enumerate(ciclos_h) if c <= ciclo_actual_g]
+
+                for i in range(len(ciclos_h_vis)-1):
+                    ax_sim.plot(ciclos_h_vis[i:i+2], probs_h_vis[i:i+2],
+                               color=_col_h(probs_h_vis[i]), linewidth=2, alpha=0.95)
 
                 # Punto actual
-                ax_sim.scatter([ciclos_h[-1]], [probs_h[-1]],
-                              color=_col_h(probs_h[-1]), s=60, zorder=5)
+                if ciclos_h_vis:
+                    ax_sim.scatter([ciclos_h_vis[-1]], [probs_h_vis[-1]],
+                                  color=_col_h(probs_h_vis[-1]), s=60, zorder=5)
 
-                ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle=':', alpha=0.5)
                 ax_sim.set_xlim(1, xlim_max)
                 ax_sim.set_ylim(-3, 108)
                 ax_sim.set_xlabel('Ciclo', fontsize=8, color='#64748b')
@@ -536,9 +541,8 @@ with tab1:
                 ax_sim.spines['right'].set_visible(False)
                 for spine in ['bottom', 'left']:
                     ax_sim.spines[spine].set_color('#1e2d4a')
-                fig_sim.subplots_adjust(left=0.12, right=0.97, top=0.95, bottom=0.22)
+                fig_sim.tight_layout()
                 st.pyplot(fig_sim, use_container_width=True, clear_figure=True)
-                plt.close('all')
 
             # Nota explicativa al finalizar la simulación
             sim_idx_check = st.session_state.get('sim_ciclo', 0)
@@ -590,6 +594,27 @@ with tab1:
                     <div style="font-size:10px;color:{color_a};font-weight:600">{acierto}</div>
                 </div>
                 ''', unsafe_allow_html=True)
+
+        # Auto-avance — después de renderizar el gráfico
+        if st.session_state.get('auto_play', False):
+            sim_ciclo_now = st.session_state.get('sim_ciclo', 0)
+            total_ciclos_now = len(motor_demo_df)
+            if sim_ciclo_now < total_ciclos_now - 1:
+                import time
+                time.sleep(0.05)
+                next_ciclo = sim_ciclo_now + 5
+                # Pausar automáticamente en la primera detección de anomalía
+                ya_detecto = st.session_state.get('primera_anomalia_detectada', False)
+                prob_now = st.session_state.get('prob_pct', 0)
+                if not ya_detecto and prob_now >= 15:
+                    st.session_state['auto_play'] = False
+                    st.session_state['primera_anomalia_detectada'] = True
+                    st.rerun()
+                else:
+                    st.session_state['sim_ciclo'] = next_ciclo
+                    st.rerun()
+            else:
+                st.session_state['auto_play'] = False
 
         st.markdown("---")
 
@@ -691,14 +716,13 @@ with tab1:
             data=datos_motor.iloc[0],
             feature_names=feature_names_legibles
         )
-        # Limpiar cualquier figura anterior antes de crear la nueva
         plt.rcParams.update({'figure.max_open_warning': 0})
         plt.close('all')
-        fig, ax = plt.subplots(figsize=(7, 5))
-        fig.patch.set_facecolor('#0a0e1a')
         shap.plots.waterfall(explanation, show=False, max_display=min(8, len(feature_names)))
-        fig.set_size_inches(7, 5)
-        st.pyplot(fig, use_container_width=True, clear_figure=True)
+        fig_shap = plt.gcf()
+        fig_shap.patch.set_facecolor('#0a0e1a')
+        fig_shap.set_size_inches(7, 5)
+        st.pyplot(fig_shap, use_container_width=True, clear_figure=True)
         plt.close('all')
 
         st.markdown("""
@@ -734,64 +758,106 @@ with tab1:
         slider_key = f'sl_{sensor_sel}'
         val_actual = float(st.session_state.get(slider_key, 0.0))
 
-        # Simular 50 ciclos: degradación progresiva desde motor nuevo hasta valor actual
-        n_ciclos = 50
-        ciclos_sim = list(range(1, n_ciclos + 1))
+        # Usar ciclos reales si la simulación está activa
+        sim_activa = st.session_state.get('simular_motor', False)
+        sim_idx_tend = st.session_state.get('sim_ciclo', 0)
+        if sim_activa and sim_idx_tend > 5:
+            n_ciclos = sim_idx_tend
+            # Usar datos reales del motor demo si están disponibles
+            col_val = f'{sensor_sel}_norm'
+            col_mm  = f'{sensor_sel}_norm_mm'
+            if col_val in motor_demo_df.columns and col_mm in motor_demo_df.columns:
+                df_tend = motor_demo_df.iloc[:sim_idx_tend]
+                ciclos_sim = list(df_tend['ciclo'])
+                valores_puntuales = list(df_tend[col_val])
+                valores_mm = list(df_tend[col_mm])
+                val_actual = valores_puntuales[-1]
+            else:
+                ciclos_sim = list(range(1, n_ciclos + 1))
+                np.random.seed(42)
+                val_inicio = -2.0 if val_actual >= 0 else 2.0
+                valores_puntuales = list(np.linspace(val_inicio, val_actual, n_ciclos) + np.random.normal(0, 0.08, n_ciclos))
+                ventana = 10
+                valores_mm = []
+                for i in range(n_ciclos):
+                    inicio = max(0, i - ventana + 1)
+                    valores_mm.append(float(np.mean(valores_puntuales[inicio:i+1])))
+        else:
+            # Simular 50 ciclos: degradación progresiva desde motor nuevo hasta valor actual
+            n_ciclos = 50
+            ciclos_sim = list(range(1, n_ciclos + 1))
+            np.random.seed(42)
+            val_inicio = -2.0 if val_actual >= 0 else 2.0
+            valores_puntuales = list(np.linspace(val_inicio, val_actual, n_ciclos) + np.random.normal(0, 0.08, n_ciclos))
+            ventana = 10
+            valores_mm = []
+            for i in range(n_ciclos):
+                inicio = max(0, i - ventana + 1)
+                valores_mm.append(float(np.mean(valores_puntuales[inicio:i+1])))
 
-        # Valor puntual: empieza en -2 (nuevo) y llega al valor actual con algo de ruido
-        np.random.seed(42)
-        val_inicio = -2.0 if val_actual >= 0 else 2.0
-        valores_puntuales = np.linspace(val_inicio, val_actual, n_ciclos) + np.random.normal(0, 0.08, n_ciclos)
-
-        # Media móvil de ventana 10
-        ventana = 10
-        valores_mm = []
-        for i in range(n_ciclos):
-            inicio = max(0, i - ventana + 1)
-            valores_mm.append(float(np.mean(valores_puntuales[inicio:i+1])))
-
-        fig5, ax5 = plt.subplots(figsize=(7, 3.5))
+        import matplotlib.figure as mfig
+        fig5 = mfig.Figure(figsize=(8, 4))
+        fig5.patch.set_facecolor('#0a0e1a')
+        ax5 = fig5.add_subplot(111)
+        ax5.set_facecolor('#0f1829')
 
         # Zona de riesgo del sensor
         umbral_sensor = 1.5 if val_actual >= 0 else -1.5
         if val_actual >= 0:
-            ax5.axhspan(umbral_sensor, 3.5, alpha=0.06, color='#ef4444')
-            ax5.axhline(umbral_sensor, color='#ef4444', linewidth=0.8, linestyle=':', alpha=0.5)
+            ax5.axhspan(umbral_sensor, 3.5, alpha=0.10, color='#ef4444')
+            ax5.axhline(umbral_sensor, color='#ef4444', linewidth=1.2, linestyle='--', alpha=0.8)
         else:
-            ax5.axhspan(-3.5, umbral_sensor, alpha=0.06, color='#ef4444')
-            ax5.axhline(umbral_sensor, color='#ef4444', linewidth=0.8, linestyle=':', alpha=0.5)
+            ax5.axhspan(-3.5, umbral_sensor, alpha=0.10, color='#ef4444')
+            ax5.axhline(umbral_sensor, color='#ef4444', linewidth=1.2, linestyle='--', alpha=0.8)
 
-        ax5.plot(ciclos_sim, valores_puntuales, color='#0ea5e9', linewidth=1.5,
-                alpha=0.6, linestyle='--', label=f'{sensor_sel}_norm  (valor puntual)')
+        ax5.plot(ciclos_sim, valores_puntuales, color='#0ea5e9', linewidth=1.2,
+                alpha=0.5, linestyle='--', label=f'{sensor_sel}_norm  (valor puntual)')
         ax5.plot(ciclos_sim, valores_mm, color='#f59e0b', linewidth=2.5,
-                label=f'{sensor_sel}_norm_mm  (media móvil 10 ciclos)')
+                label=f'{sensor_sel}_norm_mm  (media movil 10 ciclos)')
+
+        # Linea vertical ciclo actual
+        ciclo_actual_tend = ciclos_sim[-1] if ciclos_sim else n_ciclos
+        ax5.axvline(ciclo_actual_tend, color='#ffffff', linewidth=1.0, linestyle=':', alpha=0.3)
 
         # Punto actual
-        ax5.scatter([n_ciclos], [val_actual], color='#ef4444' if es_riesgo else '#22c55e',
-                   s=80, zorder=5)
-
-        ax5.set_xlabel('Ciclo', fontsize=9)
-        ax5.set_ylabel('Valor normalizado', fontsize=9)
-        ax5.set_xlim(1, n_ciclos)
-        ax5.legend(fontsize=8, loc='upper left')
-        ax5.spines['top'].set_visible(False)
-        ax5.spines['right'].set_visible(False)
+        color_punto = '#ef4444' if es_riesgo else '#22c55e'
+        ax5.scatter([ciclo_actual_tend], [val_actual], color=color_punto, s=90, zorder=6)
+        ax5.annotate(f'{val_actual:.2f}', xy=(ciclo_actual_tend, val_actual),
+                    xytext=(8, 0), textcoords='offset points',
+                    fontsize=8, color=color_punto, fontweight='bold')
 
         # Etiqueta zona riesgo
-        ax5.text(n_ciclos - 1, umbral_sensor + (0.15 if val_actual >= 0 else -0.25),
-                'zona riesgo', ha='right', fontsize=8, color='#ef4444', alpha=0.7)
+        ax5.text(ciclos_sim[0] + 2, umbral_sensor + (0.12 if val_actual >= 0 else -0.2),
+                'zona riesgo', fontsize=8, color='#ef4444', fontweight='600', alpha=0.9)
 
-        plt.tight_layout()
-        st.pyplot(fig5)
-        plt.close(fig5)
+        ax5.set_xlabel('Ciclo', fontsize=9, color='#64748b')
+        ax5.set_ylabel('Valor normalizado', fontsize=9, color='#64748b')
+        ax5.set_xlim(ciclos_sim[0], ciclo_actual_tend + 5)
+        ax5.tick_params(colors='#64748b', labelsize=8)
+        ax5.spines['top'].set_visible(False)
+        ax5.spines['right'].set_visible(False)
+        for sp in ['bottom', 'left']:
+            ax5.spines[sp].set_color('#1e2d4a')
 
-        st.markdown('''
+        legend = ax5.legend(fontsize=8, loc='upper left',
+                           facecolor='#0f1829', edgecolor='#1e2d4a',
+                           labelcolor='#94a3b8', framealpha=0.9)
+
+        fig5.tight_layout()
+        st.pyplot(fig5, use_container_width=True, clear_figure=True)
+
+        color_val = '#ef4444' if abs(val_actual) > abs(umbral_sensor) else '#22c55e'
+        estado_val = 'en zona de riesgo' if abs(val_actual) > abs(umbral_sensor) else 'en zona segura'
+        st.markdown(f'''
         <div style="background:#0a1628;border:1px solid #1e2d4a;border-left:3px solid #f59e0b;
-             border-radius:6px;padding:10px 14px;font-size:11px;color:#64748b;line-height:1.7;margin-top:6px">
+             border-radius:6px;padding:10px 14px;font-size:11px;color:#64748b;line-height:1.8;margin-top:6px">
             <span style="color:#f59e0b;font-weight:600">⚡ Clave:</span>
-            La <span style="color:#f59e0b">media móvil (naranja)</span> suaviza el ruido y revela la tendencia real de degradación.
-            El modelo usa <strong style="color:#e2e8f0">ambas señales</strong> para distinguir una anomalía puntual
-            de una degradación sostenida.
+            La <span style="color:#f59e0b">media movil (naranja)</span> suaviza el ruido y revela la tendencia real de degradacion.
+            El modelo usa <strong style="color:#e2e8f0">ambas señales</strong> para distinguir una anomalia puntual
+            de una degradacion sostenida.<br>
+            El sensor <strong style="color:#e2e8f0">{sensor_sel}</strong> tiene actualmente un valor normalizado de
+            <strong style="color:{color_val}">{val_actual:.2f}</strong> — <span style="color:{color_val}">{estado_val}</span>
+            (umbral: ±1.5). Cuando el motor era nuevo, empezaba cerca de 0.
         </div>
         ''', unsafe_allow_html=True)
 
@@ -802,8 +868,9 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown('<div class="panel-title">📊 Evolución de riesgo — simulación en tiempo real</div>', unsafe_allow_html=True)
 
-                ciclos_h = [h['ciclo'] for h in historial]
-                probs_h  = [h['prob']  for h in historial]
+                entradas_h = [historial[k] for k in sorted(historial.keys())]
+                ciclos_h = [h['ciclo'] for h in entradas_h]
+                probs_h  = [h['prob']  for h in entradas_h]
 
                 fig_h, ax_h = plt.subplots(figsize=(7, 3))
                 ax_h.axhspan(0,  15, alpha=0.08, color='#22c55e')
@@ -844,6 +911,27 @@ with tab1:
                 ax_h.text(int(motor_demo_df['ciclo'].max())-5, 70, 'EN RIESGO', ha='right', fontsize=8, color='#ef4444', alpha=0.7)
                 st.pyplot(fig_h)
                 plt.close(fig_h)
+
+                # Nota de alerta en primera anomalia
+                if st.session_state.get('primera_anomalia_detectada', False) and prob_pct >= 15:
+                    ciclo_alerta = int(motor_demo_df.iloc[st.session_state.get('sim_ciclo', 0)]['ciclo'])
+                    ciclos_antelacion = ciclo_riesgo_real - ciclo_alerta
+                    nota_html = (
+                        '<div style="background:#1a0808;border:1px solid #ef4444;border-left:4px solid #ef4444;'
+                        'border-radius:8px;padding:14px 18px;margin:8px 0">'
+                        f'<div style="font-size:11px;font-weight:700;color:#ef4444;text-transform:uppercase;'
+                        f'letter-spacing:0.1em;margin-bottom:8px">🚨 Alerta detectada — Ciclo {ciclo_alerta}</div>'
+                        f'<div style="font-size:12px;color:#94a3b8;line-height:1.9">'
+                        f'El modelo ha detectado una <strong style="color:#f59e0b">anomalia de degradacion</strong> '
+                        f'con una probabilidad de fallo del <strong style="color:#ef4444">{prob_pct:.1f}%</strong>.<br>'
+                        f'La NASA no certifica el riesgo hasta el ciclo <strong style="color:#ef4444">{ciclo_riesgo_real}</strong> '
+                        f'— el modelo se ha adelantado <strong style="color:#22c55e">{ciclos_antelacion} vuelos</strong>.<br>'
+                        f'<span style="color:#64748b;font-size:11px">'
+                        f'Accion recomendada: programar inspeccion antes del ciclo {ciclo_riesgo_real - 10}. '
+                        f'Pulsa Auto para continuar.</span>'
+                        '</div></div>'
+                    )
+                    st.markdown(nota_html, unsafe_allow_html=True)
 
                 # Panel predicción vs realidad
                 sim_idx = st.session_state.get('sim_ciclo', 0)
@@ -1143,10 +1231,19 @@ with tab3:
     st.markdown('<div class="panel-title">Pitch para la presentación</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="pitch-box">
-    "El modelo genera un valor estimado de <strong>$145 millones</strong> detectando
-    <strong>563 de 600 fallos</strong> antes de que ocurran — un Recall del 93%.
-    Comparado con no tener ningún sistema predictivo, el ahorro estimado es de
-    <strong>$445 millones de dólares</strong>."
+    "Las aerolíneas gastan más de <strong>50.000 millones de dólares</strong> al año en mantenimiento de motores.
+    El 30% de ese coste viene de fallos no planificados — motores que fallan sin avisar, aviones que quedan en tierra, vuelos cancelados.<br><br>
+
+    Nuestro modelo predice si un motor turbofan va a fallar en los próximos <strong>30 ciclos operacionales</strong>,
+    leyendo los sensores en tiempo real. Lo entrenamos con <strong>709 motores reales de la NASA</strong> —
+    el benchmark de referencia mundial para mantenimiento predictivo en aviación.<br><br>
+
+    El resultado: <strong>AUC-ROC de 0.994</strong>, detectando <strong>563 de 600 fallos reales</strong>
+    con un 42 ciclos de antelación de media — tiempo suficiente para programar el mantenimiento antes de que ocurra el fallo.<br><br>
+
+    Aplicado a una flota real, el modelo genera un valor neto estimado de <strong>$145 millones</strong>,
+    con un ahorro de <strong>$445 millones</strong> frente a no tener ningún sistema predictivo.
+    Cada fallo evitado vale $300.000. Cada fallo no detectado cuesta $500.000."
     </div>
     """, unsafe_allow_html=True)
 
