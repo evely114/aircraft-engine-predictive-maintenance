@@ -487,9 +487,10 @@ with tab1:
                 prob_actual_color = _col_h(prob_pct)
                 st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{prob_pct:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
 
-                plt.close('all')
-                fig_sim, ax_sim = plt.subplots(figsize=(6, 3.0))
+                import matplotlib.figure
+                fig_sim = matplotlib.figure.Figure(figsize=(6, 3.0))
                 fig_sim.patch.set_facecolor('#0a0e1a')
+                ax_sim = fig_sim.add_subplot(111)
                 ax_sim.set_facecolor('#0f1829')
                 max_ciclo = int(motor_demo_df['ciclo'].max())
 
@@ -498,6 +499,16 @@ with tab1:
                     xlim_max = max(ciclo_max_visitado + 30, 80)
                 else:
                     xlim_max = max_ciclo
+
+                # Zonas de color horizontal
+                ax_sim.axhspan(0,  15, alpha=0.08, color='#22c55e')
+                ax_sim.axhspan(15, 50, alpha=0.06, color='#f59e0b')
+                ax_sim.axhspan(50, 108, alpha=0.06, color='#ef4444')
+                ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.axhline(50, color='#ef4444', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.text(2, 5,   'SEGURO',    fontsize=6.5, color='#22c55e', alpha=0.6, fontweight='600')
+                ax_sim.text(2, 30,  'ALERTA',    fontsize=6.5, color='#f59e0b', alpha=0.6, fontweight='600')
+                ax_sim.text(2, 75,  'EN RIESGO', fontsize=6.5, color='#ef4444', alpha=0.6, fontweight='600')
 
                 # Área sombreada roja = zona de fallo real NASA (solo si está en el rango visible)
                 if xlim_max >= ciclo_riesgo_real:
@@ -520,7 +531,6 @@ with tab1:
                     ax_sim.scatter([ciclos_h_vis[-1]], [probs_h_vis[-1]],
                                   color=_col_h(probs_h_vis[-1]), s=60, zorder=5)
 
-                ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle=':', alpha=0.5)
                 ax_sim.set_xlim(1, xlim_max)
                 ax_sim.set_ylim(-3, 108)
                 ax_sim.set_xlabel('Ciclo', fontsize=8, color='#64748b')
@@ -530,9 +540,8 @@ with tab1:
                 ax_sim.spines['right'].set_visible(False)
                 for spine in ['bottom', 'left']:
                     ax_sim.spines[spine].set_color('#1e2d4a')
-                plt.tight_layout()
+                fig_sim.tight_layout()
                 st.pyplot(fig_sim, use_container_width=True, clear_figure=True)
-                plt.close('all')
 
             # Nota explicativa al finalizar la simulación
             sim_idx_check = st.session_state.get('sim_ciclo', 0)
@@ -807,8 +816,9 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown('<div class="panel-title">📊 Evolución de riesgo — simulación en tiempo real</div>', unsafe_allow_html=True)
 
-                ciclos_h = [h['ciclo'] for h in historial]
-                probs_h  = [h['prob']  for h in historial]
+                entradas_h = [historial[k] for k in sorted(historial.keys())]
+                ciclos_h = [h['ciclo'] for h in entradas_h]
+                probs_h  = [h['prob']  for h in entradas_h]
 
                 fig_h, ax_h = plt.subplots(figsize=(7, 3))
                 ax_h.axhspan(0,  15, alpha=0.08, color='#22c55e')
@@ -1148,10 +1158,19 @@ with tab3:
     st.markdown('<div class="panel-title">Pitch para la presentación</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="pitch-box">
-    "El modelo genera un valor estimado de <strong>$145 millones</strong> detectando
-    <strong>563 de 600 fallos</strong> antes de que ocurran — un Recall del 93%.
-    Comparado con no tener ningún sistema predictivo, el ahorro estimado es de
-    <strong>$445 millones de dólares</strong>."
+    "Las aerolíneas gastan más de <strong>50.000 millones de dólares</strong> al año en mantenimiento de motores.
+    El 30% de ese coste viene de fallos no planificados — motores que fallan sin avisar, aviones que quedan en tierra, vuelos cancelados.<br><br>
+
+    Nuestro modelo predice si un motor turbofan va a fallar en los próximos <strong>30 ciclos operacionales</strong>,
+    leyendo los sensores en tiempo real. Lo entrenamos con <strong>709 motores reales de la NASA</strong> —
+    el benchmark de referencia mundial para mantenimiento predictivo en aviación.<br><br>
+
+    El resultado: <strong>AUC-ROC de 0.994</strong>, detectando <strong>563 de 600 fallos reales</strong>
+    con un 42 ciclos de antelación de media — tiempo suficiente para programar el mantenimiento antes de que ocurra el fallo.<br><br>
+
+    Aplicado a una flota real, el modelo genera un valor neto estimado de <strong>$145 millones</strong>,
+    con un ahorro de <strong>$445 millones</strong> frente a no tener ningún sistema predictivo.
+    Cada fallo evitado vale $300.000. Cada fallo no detectado cuesta $500.000."
     </div>
     """, unsafe_allow_html=True)
 
