@@ -834,6 +834,90 @@ with tab1:
 
 
         st.markdown("---")
+
+        # Línea de tiempo compacta con miniaturas — solo durante simulación
+        if sim_activa:
+            _historial_ldt = st.session_state.get('sim_historial', {})
+            _ciclo_riesgo_ldt = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min()) if 1 in motor_demo_df['target'].values else 9999
+            _max_c_ldt = int(motor_demo_df['ciclo'].max())
+            _hito_a = _hito_r = _hito_n = None
+            for k in sorted(_historial_ldt.keys()):
+                c = _historial_ldt[k]['ciclo']
+                p = _historial_ldt[k]['prob']
+                if _hito_a is None and p >= 15: _hito_a = (c, p)
+                if _hito_r is None and p >= 50: _hito_r = (c, p)
+                if _hito_n is None and c >= _ciclo_riesgo_ldt: _hito_n = (c, p)
+
+            def _mini_svg(hasta_ciclo, color_punto, marcar_ciclo=None, marcar_color='#ffffff'):
+                W, H, PAD = 200, 45, 6
+                # Mostrar solo los últimos 80 ciclos alrededor del hito
+                ventana = 80
+                c_inicio = max(1, hasta_ciclo - ventana)
+                c_fin = hasta_ciclo + 10
+                segs = []
+                prev_x = prev_y = None
+                for k in sorted(_historial_ldt.keys()):
+                    c = _historial_ldt[k]['ciclo']
+                    if c < c_inicio: continue
+                    if c > hasta_ciclo: break
+                    p = _historial_ldt[k]['prob']
+                    x = PAD + ((c - c_inicio) / (c_fin - c_inicio)) * (W - 2*PAD)
+                    y = (H - PAD) - (p / 100) * (H - 2*PAD)
+                    col = '#22c55e' if p < 15 else ('#f59e0b' if p < 50 else '#ef4444')
+                    if prev_x is not None:
+                        segs.append(f'<line x1="{prev_x:.1f}" y1="{prev_y:.1f}" x2="{x:.1f}" y2="{y:.1f}" stroke="{col}" stroke-width="2"/>')
+                    prev_x, prev_y = x, y
+                y15 = (H - PAD) - (15 / 100) * (H - 2*PAD)
+                segs.append(f'<line x1="{PAD}" y1="{y15:.1f}" x2="{W-PAD}" y2="{y15:.1f}" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.6"/>')
+                if marcar_ciclo:
+                    mx = PAD + ((marcar_ciclo - c_inicio) / (c_fin - c_inicio)) * (W - 2*PAD)
+                    segs.append(f'<line x1="{mx:.1f}" y1="{PAD}" x2="{mx:.1f}" y2="{H-2}" stroke="{marcar_color}" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.9"/>')
+                if prev_x is not None:
+                    segs.append(f'<circle cx="{prev_x:.1f}" cy="{prev_y:.1f}" r="4" fill="{color_punto}"/>')
+                return f'<svg viewBox="0 0 {W} {H}" width="100%" height="45" style="display:block"><rect width="{W}" height="{H}" fill="#0f1829" rx="4"/>{"".join(segs)}</svg>'
+
+            if _hito_a or _hito_r or _hito_n:
+                ldt_html = '<div style="background:#0a0e1a;border:1px solid #1e2d4a;border-radius:8px;padding:12px 14px;margin:10px 0">'
+                ldt_html += '<div style="font-size:9px;font-weight:600;color:#0ea5e9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">📍 Hitos detectados</div>'
+                ldt_html += '<div style="display:flex;flex-direction:column;gap:10px">'
+                if _hito_a:
+                    svg = _mini_svg(_hito_a[0], '#f59e0b', _hito_a[0], '#f59e0b')
+                    ldt_html += (
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+                        f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0e00;border:1.5px solid #f59e0b;'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">⚠️</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#f59e0b;font-weight:600">c.{_hito_a[0]}</span>'
+                        f' <span style="color:#64748b">Primera alerta · {_hito_a[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_a[0]} vuelos antes NASA</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
+                    )
+                if _hito_r:
+                    svg = _mini_svg(_hito_r[0], '#ef4444', _hito_r[0], '#ef4444')
+                    ldt_html += (
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+                        f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0808;border:1.5px solid #ef4444;'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🚨</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#ef4444;font-weight:600">c.{_hito_r[0]}</span>'
+                        f' <span style="color:#64748b">Riesgo alto · {_hito_r[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_r[0]} vuelos antes NASA</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
+                    )
+                if _hito_n:
+                    svg = _mini_svg(_hito_n[0], '#a855f7', _ciclo_riesgo_ldt, '#a855f7')
+                    ldt_html += (
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+                        f'<div style="width:22px;height:22px;border-radius:50%;background:#0f0a1a;border:1.5px solid #a855f7;'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🛑</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
+                        f' <span style="color:#64748b">NASA certifica el fallo</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
+                    )
+                ldt_html += '</div></div>'
+                st.markdown(ldt_html, unsafe_allow_html=True)
         # archivo = st.file_uploader("O sube un CSV con datos reales", type=['csv'],
         #                           help="El CSV debe tener las mismas columnas que el dataset de entrenamiento")
         # if archivo:
@@ -1055,113 +1139,6 @@ with tab1:
                 ax_h.text(int(motor_demo_df['ciclo'].max())-5, 70, 'EN RIESGO', ha='right', fontsize=8, color='#ef4444', alpha=0.7)
                 st.pyplot(fig_h)
                 plt.close(fig_h)
-
-                # Línea de tiempo visual con hitos
-                _historial_sim = st.session_state.get('sim_historial', {})
-                _ciclo_riesgo_r = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min()) if 1 in motor_demo_df['target'].values else 9999
-
-                # Calcular hitos desde el historial
-                _hito_alerta = None
-                _hito_riesgo = None
-                _hito_nasa = None
-                for k in sorted(_historial_sim.keys()):
-                    c = _historial_sim[k]['ciclo']
-                    p = _historial_sim[k]['prob']
-                    if _hito_alerta is None and p >= 15:
-                        _hito_alerta = (c, p)
-                    if _hito_riesgo is None and p >= 50:
-                        _hito_riesgo = (c, p)
-                    if _hito_nasa is None and c >= _ciclo_riesgo_r:
-                        _hito_nasa = (c, p)
-
-                if _hito_alerta or _hito_riesgo or _hito_nasa:
-                    # Construir puntos SVG del historial para las miniaturas
-                    _max_c = int(motor_demo_df['ciclo'].max())
-                    _all_c = sorted(_historial_sim.keys())
-                    def _svg_miniatura(hasta_ciclo, color_punto, marcar_ciclo=None, marcar_color='#ffffff'):
-                        W, H, PAD = 220, 55, 8
-                        pts = []
-                        prev_col = '#22c55e'
-                        segs = []
-                        prev_x, prev_y, prev_col = None, None, '#22c55e'
-                        for k in _all_c:
-                            c = _historial_sim[k]['ciclo']
-                            if c > hasta_ciclo:
-                                break
-                            p = _historial_sim[k]['prob']
-                            x = PAD + (c / _max_c) * (W - 2*PAD)
-                            y = (H - PAD) - (p / 100) * (H - 2*PAD)
-                            col = '#22c55e' if p < 15 else ('#f59e0b' if p < 50 else '#ef4444')
-                            if prev_x is not None:
-                                segs.append(f'<line x1="{prev_x:.1f}" y1="{prev_y:.1f}" x2="{x:.1f}" y2="{y:.1f}" stroke="{col}" stroke-width="1.8"/>')
-                            prev_x, prev_y, prev_col = x, y, col
-                        # Línea umbral 15%
-                        y15 = (H - PAD) - (15 / 100) * (H - 2*PAD)
-                        segs.append(f'<line x1="{PAD}" y1="{y15:.1f}" x2="{W-PAD}" y2="{y15:.1f}" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.5"/>')
-                        # Línea vertical hito
-                        if marcar_ciclo:
-                            mx = PAD + (marcar_ciclo / _max_c) * (W - 2*PAD)
-                            segs.append(f'<line x1="{mx:.1f}" y1="{PAD}" x2="{mx:.1f}" y2="{H-2}" stroke="{marcar_color}" stroke-width="1.2" stroke-dasharray="3,2" opacity="0.7"/>')
-                        # Punto final
-                        if prev_x is not None:
-                            segs.append(f'<circle cx="{prev_x:.1f}" cy="{prev_y:.1f}" r="3" fill="{color_punto}"/>')
-                        svg = f'<svg viewBox="0 0 {W} {H}" width="100%" style="display:block">'
-                        svg += f'<rect width="{W}" height="{H}" fill="#0f1829" rx="4"/>'
-                        svg += ''.join(segs)
-                        svg += '</svg>'
-                        return svg
-
-                    hitos_html = '<div style="background:#0a0e1a;border:1px solid #1e2d4a;border-radius:8px;padding:14px 18px;margin:8px 0">'
-                    hitos_html += '<div style="font-size:10px;font-weight:600;color:#0ea5e9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">📍 Línea de tiempo — Hitos detectados</div>'
-                    hitos_html += '<div style="display:flex;flex-direction:column;gap:0">'
-
-                    if _hito_alerta:
-                        svg_a = _svg_miniatura(_hito_alerta[0], '#f59e0b', _hito_alerta[0], '#f59e0b')
-                        hitos_html += (
-                            f'<div style="display:flex;gap:14px;align-items:flex-start;padding-bottom:14px">'
-                            f'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
-                            f'<div style="width:34px;height:34px;border-radius:50%;background:#1a0e00;border:2px solid #f59e0b;'
-                            f'display:flex;align-items:center;justify-content:center;font-size:15px">⚠️</div>'
-                            f'{"<div style=\"width:2px;flex:1;background:#1e2d4a;margin:4px auto\"></div>" if _hito_riesgo or _hito_nasa else ""}'
-                            f'</div>'
-                            f'<div style="flex:1;min-width:0">'
-                            f'<p style="margin:4px 0 4px;font-size:12px;font-weight:600;color:#f59e0b">Ciclo {_hito_alerta[0]} — Primera alerta</p>'
-                            f'<p style="margin:0 0 8px;font-size:11px;color:#64748b">Prob. {_hito_alerta[1]:.1f}% · {_ciclo_riesgo_r - _hito_alerta[0]} vuelos antes del fallo NASA</p>'
-                            f'<div style="background:#0a0e1a;border-radius:6px;padding:6px;border:0.5px solid #1e2d4a">{svg_a}</div>'
-                            f'</div></div>'
-                        )
-
-                    if _hito_riesgo:
-                        svg_r = _svg_miniatura(_hito_riesgo[0], '#ef4444', _hito_riesgo[0], '#ef4444')
-                        hitos_html += (
-                            f'<div style="display:flex;gap:14px;align-items:flex-start;padding-bottom:14px">'
-                            f'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
-                            f'<div style="width:34px;height:34px;border-radius:50%;background:#1a0808;border:2px solid #ef4444;'
-                            f'display:flex;align-items:center;justify-content:center;font-size:15px">🚨</div>'
-                            f'{"<div style=\"width:2px;flex:1;background:#1e2d4a;margin:4px auto\"></div>" if _hito_nasa else ""}'
-                            f'</div>'
-                            f'<div style="flex:1;min-width:0">'
-                            f'<p style="margin:4px 0 4px;font-size:12px;font-weight:600;color:#ef4444">Ciclo {_hito_riesgo[0]} — Riesgo alto</p>'
-                            f'<p style="margin:0 0 8px;font-size:11px;color:#64748b">Prob. {_hito_riesgo[1]:.1f}% · {_ciclo_riesgo_r - _hito_riesgo[0]} vuelos antes del fallo NASA</p>'
-                            f'<div style="background:#0a0e1a;border-radius:6px;padding:6px;border:0.5px solid #1e2d4a">{svg_r}</div>'
-                            f'</div></div>'
-                        )
-
-                    if _hito_nasa:
-                        svg_n = _svg_miniatura(_hito_nasa[0], '#a855f7', _ciclo_riesgo_r, '#a855f7')
-                        hitos_html += (
-                            f'<div style="display:flex;gap:14px;align-items:flex-start">'
-                            f'<div style="width:34px;height:34px;border-radius:50%;background:#0f0a1a;border:2px solid #a855f7;'
-                            f'display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">🛑</div>'
-                            f'<div style="flex:1;min-width:0">'
-                            f'<p style="margin:4px 0 4px;font-size:12px;font-weight:600;color:#a855f7">Ciclo {_ciclo_riesgo_r} — NASA certifica el fallo</p>'
-                            f'<p style="margin:0 0 8px;font-size:11px;color:#64748b">Prob. 100% · motor en zona de fallo irreversible</p>'
-                            f'<div style="background:#0a0e1a;border-radius:6px;padding:6px;border:0.5px solid #1e2d4a">{svg_n}</div>'
-                            f'</div></div>'
-                        )
-
-                    hitos_html += '</div></div>'
-                    st.markdown(hitos_html, unsafe_allow_html=True)
 
                 # Panel predicción vs realidad
                 sim_idx = st.session_state.get('sim_ciclo', 0)

@@ -833,10 +833,13 @@ with tab1:
             st.slider("s15", -3.0, 3.0, step=0.1, key='sl_s15', label_visibility="collapsed", on_change=reset_modo)
 
 
-        # Línea de tiempo compacta — solo durante simulación
+        st.markdown("---")
+
+        # Línea de tiempo compacta con miniaturas — solo durante simulación
         if sim_activa:
             _historial_ldt = st.session_state.get('sim_historial', {})
             _ciclo_riesgo_ldt = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min()) if 1 in motor_demo_df['target'].values else 9999
+            _max_c_ldt = int(motor_demo_df['ciclo'].max())
             _hito_a = _hito_r = _hito_n = None
             for k in sorted(_historial_ldt.keys()):
                 c = _historial_ldt[k]['ciclo']
@@ -845,38 +848,109 @@ with tab1:
                 if _hito_r is None and p >= 50: _hito_r = (c, p)
                 if _hito_n is None and c >= _ciclo_riesgo_ldt: _hito_n = (c, p)
 
+            def _mini_svg(hasta_ciclo, color_punto):
+                W, H, PAD = 200, 45, 6
+                # Mostrar solo los últimos 80 ciclos alrededor del hito
+                ventana = 80
+                c_inicio = max(1, hasta_ciclo - ventana)
+                c_fin = hasta_ciclo + 10
+
+                puntos = [
+                    (_historial_ldt[k]['ciclo'], _historial_ldt[k]['prob'])
+                    for k in sorted(_historial_ldt.keys())
+                    if c_inicio <= _historial_ldt[k]['ciclo'] <= hasta_ciclo
+                ]
+
+                # Escala Y local a la ventana visible (con techo en el máximo de la ventana,
+                # nunca por debajo de 15) — evita que la línea se vea plana cuando toda la
+                # ventana está muy por debajo del 100%.
+                p_max_ventana = max((p for _, p in puntos), default=15)
+                p_techo = max(p_max_ventana * 1.15, 15)
+
+                def _y(p):
+                    return (H - PAD) - (min(p, p_techo) / p_techo) * (H - 2*PAD)
+
+                segs = []
+                prev_x = prev_y = None
+                for c, p in puntos:
+                    x = PAD + ((c - c_inicio) / (c_fin - c_inicio)) * (W - 2*PAD)
+                    y = _y(p)
+                    col = '#22c55e' if p < 15 else ('#f59e0b' if p < 50 else '#ef4444')
+                    if prev_x is not None:
+                        segs.append(f'<line x1="{prev_x:.1f}" y1="{prev_y:.1f}" x2="{x:.1f}" y2="{y:.1f}" stroke="{col}" stroke-width="2"/>')
+                    prev_x, prev_y = x, y
+                if p_techo >= 15:
+                    y15 = _y(15)
+                    segs.append(f'<line x1="{PAD}" y1="{y15:.1f}" x2="{W-PAD}" y2="{y15:.1f}" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.6"/>')
+                # El punto final ya marca el hito con su color — no hace falta una línea
+                # vertical extra, que además queda pegada al tramo más empinado de la curva.
+                if prev_x is not None:
+                    segs.append(f'<circle cx="{prev_x:.1f}" cy="{prev_y:.1f}" r="4" fill="{color_punto}"/>')
+                return (
+                    f'<svg viewBox="0 0 {W} {H}" width="100%" height="45" preserveAspectRatio="none" '
+                    f'style="display:block">'
+                    f'<rect width="{W}" height="{H}" fill="#0f1829" rx="4"/>{"".join(segs)}</svg>'
+                )
+
+            # Cuando el ciclo de "riesgo alto" (rojo) coincide con el ciclo de certificación
+            # NASA (morado) — p.ej. motor #69, ciclo 333 — fusionamos ambos hitos en una sola
+            # tarjeta, porque mostrar dos miniaturas casi idénticas confunde más de lo que aclara.
+            _coincide_rn = bool(_hito_r and _hito_n and _hito_r[0] == _ciclo_riesgo_ldt)
+
             if _hito_a or _hito_r or _hito_n:
-                ldt_html = '<div style="background:#0a0e1a;border:1px solid #1e2d4a;border-radius:8px;padding:10px 14px;margin:10px 0">'
-                ldt_html += '<div style="font-size:9px;font-weight:600;color:#0ea5e9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">📍 Hitos detectados</div>'
-                ldt_html += '<div style="display:flex;flex-direction:column;gap:6px">'
+                ldt_html = '<div style="background:#0a0e1a;border:1px solid #1e2d4a;border-radius:8px;padding:12px 14px;margin:10px 0">'
+                ldt_html += '<div style="font-size:9px;font-weight:600;color:#0ea5e9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">📍 Hitos detectados</div>'
+                ldt_html += '<div style="display:flex;flex-direction:column;gap:10px">'
                 if _hito_a:
+                    svg = _mini_svg(_hito_a[0], '#f59e0b')
                     ldt_html += (
-                        f'<div style="display:flex;align-items:center;gap:8px">'
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0e00;border:1.5px solid #f59e0b;'
-                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">⚠️</div>'
-                        f'<div style="font-size:11px"><span style="color:#f59e0b;font-weight:600">c.{_hito_a[0]}</span>'
-                        f' <span style="color:#64748b">Primera alerta · {_hito_a[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_a[0]} vuelos antes NASA</span></div></div>'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">⚠️</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#f59e0b;font-weight:600">c.{_hito_a[0]}</span>'
+                        f' <span style="color:#64748b">Primera alerta · {_hito_a[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_a[0]} vuelos antes NASA</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
                     )
-                if _hito_r:
+                if _hito_r and not _coincide_rn:
+                    svg = _mini_svg(_hito_r[0], '#ef4444')
                     ldt_html += (
-                        f'<div style="display:flex;align-items:center;gap:8px">'
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0808;border:1.5px solid #ef4444;'
-                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">🚨</div>'
-                        f'<div style="font-size:11px"><span style="color:#ef4444;font-weight:600">c.{_hito_r[0]}</span>'
-                        f' <span style="color:#64748b">Riesgo alto · {_hito_r[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_r[0]} vuelos antes NASA</span></div></div>'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🚨</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#ef4444;font-weight:600">c.{_hito_r[0]}</span>'
+                        f' <span style="color:#64748b">Riesgo alto · {_hito_r[1]:.0f}% · {_ciclo_riesgo_ldt - _hito_r[0]} vuelos antes NASA</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
                     )
-                if _hito_n:
+                if _hito_n and not _coincide_rn:
+                    svg = _mini_svg(_hito_n[0], '#a855f7')
                     ldt_html += (
-                        f'<div style="display:flex;align-items:center;gap:8px">'
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
                         f'<div style="width:22px;height:22px;border-radius:50%;background:#0f0a1a;border:1.5px solid #a855f7;'
-                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">🛑</div>'
-                        f'<div style="font-size:11px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
-                        f' <span style="color:#64748b">NASA certifica el fallo</span></div></div>'
+                        f'display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px">🛑</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
+                        f' <span style="color:#64748b">NASA certifica el fallo</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
+                    )
+                if _coincide_rn:
+                    svg = _mini_svg(_ciclo_riesgo_ldt, '#a855f7')
+                    ldt_html += (
+                        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+                        f'<div style="width:22px;height:22px;border-radius:50%;background:#1a0808;border:1.5px solid #ef4444;'
+                        f'display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:2px">🚨🛑</div>'
+                        f'<div style="flex:1;min-width:0">'
+                        f'<div style="font-size:13px;margin-bottom:4px"><span style="color:#a855f7;font-weight:600">c.{_ciclo_riesgo_ldt}</span>'
+                        f' <span style="color:#64748b">Riesgo alto ({_hito_r[1]:.0f}%) y certificación NASA — mismo ciclo</span></div>'
+                        f'<div style="border-radius:4px;overflow:hidden;">{svg}</div>'
+                        f'</div></div>'
                     )
                 ldt_html += '</div></div>'
                 st.markdown(ldt_html, unsafe_allow_html=True)
-
-        st.markdown("---")
         # archivo = st.file_uploader("O sube un CSV con datos reales", type=['csv'],
         #                           help="El CSV debe tener las mismas columnas que el dataset de entrenamiento")
         # if archivo:
