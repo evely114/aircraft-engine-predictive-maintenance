@@ -163,6 +163,14 @@ def cargar_modelo():
     feature_names = joblib.load('models/feature_names.pkl')
     return modelo, feature_names
 
+@st.cache_resource
+def obtener_explainer(_modelo):
+    # Construir el TreeExplainer es costoso y el modelo no cambia entre reruns —
+    # cachearlo evita reconstruirlo en cada ciclo de la simulación (antes se
+    # reconstruía DOS veces por rerun), que era la causa del retraso del panel
+    # SHAP respecto al resto de la UI durante la reproducción automática.
+    return shap.TreeExplainer(_modelo)
+
 @st.cache_data
 def cargar_datos_test():
     X = pd.read_csv('data/processed/X_test.csv')
@@ -316,7 +324,15 @@ with tab1:
 
     proba = modelo.predict_proba(datos_motor)[:, 1]
     prob_pct = float(proba[0] * 100)
-    es_riesgo = bool(prob_pct >= 15.0)
+    # Umbrales ajustables desde "⚙ Configurar umbrales de alerta" (más abajo en la UI).
+    # Se leen aquí con valor por defecto porque Streamlit ya conserva en session_state
+    # lo último que el usuario ajustó, aunque el widget se declare más adelante en el script.
+    umbral_alerta_pct = float(st.session_state.get('umbral_alerta_val', 15))
+    umbral_riesgo_pct = float(st.session_state.get('umbral_riesgo_val', 50))
+    es_riesgo = bool(prob_pct >= umbral_alerta_pct)
+    # Guardamos el valor anterior ANTES de sobreescribirlo — permite mostrar cuánto
+    # cambió la probabilidad en este rerun (prueba visible del efecto del slider).
+    prob_pct_anterior = st.session_state.get('prob_pct')
     st.session_state['prob_pct'] = prob_pct
     st.session_state['es_riesgo'] = es_riesgo
 
@@ -371,7 +387,21 @@ with tab1:
             """, unsafe_allow_html=True)
 
     with col_m2:
-        st.metric("Estado", "⚠ EN RIESGO" if es_riesgo else "✓ SEGURO")
+        delta_txt = None
+        if (
+            modo_actual == 'manual'
+            and prob_pct_anterior is not None
+            and abs(prob_pct - prob_pct_anterior) > 0.05
+        ):
+            delta_txt = f"{prob_pct - prob_pct_anterior:+.1f} pts"
+        st.metric(
+            "Estado",
+            "⚠ EN RIESGO" if es_riesgo else "✓ SEGURO",
+            delta=delta_txt,
+            delta_color="inverse",  # sube probabilidad de fallo = mal (rojo), baja = bien (verde)
+        )
+        if delta_txt:
+            st.caption("👆 así reacciona el modelo al mover un sensor")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -511,19 +541,17 @@ with tab1:
                 probs_h  = [h['prob']  for h in entradas]
 
                 def _col_h(p):
-                    if p < 15:   return '#22c55e'
-                    elif p < 50: return '#f59e0b'
-                    else:        return '#ef4444'
+                    if p < umbral_alerta_pct:   return '#22c55e'
+                    elif p < umbral_riesgo_pct: return '#f59e0b'
+                    else:                       return '#ef4444'
 
                 ciclo_riesgo_real = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min())
 
                 prob_actual_color = _col_h(prob_pct)
                 st.markdown(f'<p style="font-size:11px;color:#64748b;margin-bottom:4px">🤖 Prob. fallo actual: <span style="color:{prob_actual_color};font-weight:700">{prob_pct:.1f}%</span> &nbsp;·&nbsp; 📋 NASA fallo real en ciclo <span style="color:#ffffff;font-weight:700">{ciclo_riesgo_real}</span></p>', unsafe_allow_html=True)
 
-                import matplotlib.figure
-                fig_sim = matplotlib.figure.Figure(figsize=(6, 3.0))
+                fig_sim, ax_sim = plt.subplots(figsize=(6, 3.0))
                 fig_sim.patch.set_facecolor('#0a0e1a')
-                ax_sim = fig_sim.add_subplot(111)
                 ax_sim.set_facecolor('#0f1829')
                 max_ciclo = int(motor_demo_df['ciclo'].max())
 
@@ -534,14 +562,14 @@ with tab1:
                     xlim_max = max_ciclo
 
                 # Zonas de color horizontal
-                ax_sim.axhspan(0,  15, alpha=0.08, color='#22c55e')
-                ax_sim.axhspan(15, 50, alpha=0.06, color='#f59e0b')
-                ax_sim.axhspan(50, 108, alpha=0.06, color='#ef4444')
-                ax_sim.axhline(15, color='#f59e0b', linewidth=0.8, linestyle='--', alpha=0.5)
-                ax_sim.axhline(50, color='#ef4444', linewidth=0.8, linestyle='--', alpha=0.5)
-                ax_sim.text(2, 5,   'SEGURO',    fontsize=6.5, color='#22c55e', alpha=0.6, fontweight='600')
-                ax_sim.text(2, 30,  'ALERTA',    fontsize=6.5, color='#f59e0b', alpha=0.6, fontweight='600')
-                ax_sim.text(2, 75,  'EN RIESGO', fontsize=6.5, color='#ef4444', alpha=0.6, fontweight='600')
+                ax_sim.axhspan(0,  umbral_alerta_pct, alpha=0.08, color='#22c55e')
+                ax_sim.axhspan(umbral_alerta_pct, umbral_riesgo_pct, alpha=0.06, color='#f59e0b')
+                ax_sim.axhspan(umbral_riesgo_pct, 108, alpha=0.06, color='#ef4444')
+                ax_sim.axhline(umbral_alerta_pct, color='#f59e0b', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.axhline(umbral_riesgo_pct, color='#ef4444', linewidth=0.8, linestyle='--', alpha=0.5)
+                ax_sim.text(2, umbral_alerta_pct/2,   'SEGURO',    fontsize=6.5, color='#22c55e', alpha=0.6, fontweight='600')
+                ax_sim.text(2, (umbral_alerta_pct+umbral_riesgo_pct)/2,  'ALERTA',    fontsize=6.5, color='#f59e0b', alpha=0.6, fontweight='600')
+                ax_sim.text(2, (umbral_riesgo_pct+100)/2,  'EN RIESGO', fontsize=6.5, color='#ef4444', alpha=0.6, fontweight='600')
 
                 # Área sombreada roja = zona de fallo real NASA (solo si está en el rango visible)
                 if xlim_max >= ciclo_riesgo_real:
@@ -574,7 +602,8 @@ with tab1:
                 for spine in ['bottom', 'left']:
                     ax_sim.spines[spine].set_color('#1e2d4a')
                 fig_sim.tight_layout()
-                st.pyplot(fig_sim, use_container_width=True, clear_figure=True)
+                st.pyplot(fig_sim, use_container_width=True)
+                plt.close(fig_sim)
 
             # Notas dinámicas — Simulador 1
             if st.session_state.get('primera_anomalia_detectada', False) and not st.session_state.get('primer_riesgo_alto_detectado', False):
@@ -643,7 +672,7 @@ with tab1:
                 _ciclo_deteccion = '?'
                 _antelacion = '?'
                 for k in sorted(_historial_now.keys()):
-                    if _historial_now[k]['prob'] >= 15:
+                    if _historial_now[k]['prob'] >= umbral_alerta_pct:
                         _ciclo_deteccion = _historial_now[k]['ciclo']
                         _antelacion = _ciclo_fallo - _ciclo_deteccion
                         break
@@ -667,7 +696,7 @@ with tab1:
             # Panel predicción vs realidad
             sim_idx = st.session_state.get('sim_ciclo', 0)
             target_actual = int(motor_demo_df.iloc[sim_idx]['target'])
-            pred_actual = prob_pct >= 15.0
+            pred_actual = prob_pct >= umbral_alerta_pct
             col_pred, col_real = st.columns(2)
             with col_pred:
                 color_p = "#ef4444" if pred_actual else "#22c55e"
@@ -705,26 +734,47 @@ with tab1:
                 prob_now = st.session_state.get('prob_pct', 0)
                 ya_alerta = st.session_state.get('primera_anomalia_detectada', False)
                 ya_riesgo = st.session_state.get('primer_riesgo_alto_detectado', False)
-                # Pausa 1: primera vez que cruza 15% (alerta)
-                if not ya_alerta and prob_now >= 15:
+                # Pausa 1: primera vez que cruza el umbral de alerta
+                if not ya_alerta and prob_now >= umbral_alerta_pct:
                     st.session_state['auto_play'] = False
                     st.session_state['primera_anomalia_detectada'] = True
                     st.rerun()
-                # Pausa 2: primera vez que cruza 50% (riesgo alto)
-                elif ya_alerta and not ya_riesgo and prob_now >= 50:
+                elif not ya_alerta:
+                    # Comprobar si el siguiente salto cruza el umbral de alerta
+                    next_fila_a = motor_demo_df.iloc[min(next_ciclo, len(motor_demo_df)-1)][feature_names].to_dict()
+                    next_prob_a = modelo.predict_proba(pd.DataFrame([next_fila_a]))[0][1] * 100
+                    if next_prob_a >= umbral_alerta_pct:
+                        # Buscar el ciclo exacto donde cruza el umbral de alerta —
+                        # sin esto, cambiar el slider de umbral no movía el hito si la
+                        # probabilidad sube de golpe dentro de un mismo salto de 5 ciclos.
+                        for _idx in range(sim_ciclo_now + 1, min(next_ciclo + 1, len(motor_demo_df))):
+                            _fila_chk = motor_demo_df.iloc[_idx][feature_names].to_dict()
+                            _prob_chk = modelo.predict_proba(pd.DataFrame([_fila_chk]))[0][1] * 100
+                            if _prob_chk >= umbral_alerta_pct:
+                                st.session_state['sim_ciclo'] = _idx
+                                st.rerun()
+                                break
+                        else:
+                            st.session_state['sim_ciclo'] = next_ciclo
+                            st.rerun()
+                    else:
+                        st.session_state['sim_ciclo'] = next_ciclo
+                        st.rerun()
+                # Pausa 2: primera vez que cruza el umbral de riesgo alto
+                elif ya_alerta and not ya_riesgo and prob_now >= umbral_riesgo_pct:
                     st.session_state['auto_play'] = False
                     st.session_state['primer_riesgo_alto_detectado'] = True
                     st.rerun()
                 elif ya_alerta and not ya_riesgo:
-                    # Comprobar si el siguiente salto cruza el 50%
+                    # Comprobar si el siguiente salto cruza el umbral de riesgo alto
                     next_fila = motor_demo_df.iloc[min(next_ciclo, len(motor_demo_df)-1)][feature_names].to_dict()
                     next_prob = modelo.predict_proba(pd.DataFrame([next_fila]))[0][1] * 100
-                    if next_prob >= 50:
-                        # Buscar el ciclo exacto donde cruza el 50%
+                    if next_prob >= umbral_riesgo_pct:
+                        # Buscar el ciclo exacto donde cruza el umbral de riesgo alto
                         for _idx in range(sim_ciclo_now + 1, min(next_ciclo + 1, len(motor_demo_df))):
                             _fila_chk = motor_demo_df.iloc[_idx][feature_names].to_dict()
                             _prob_chk = modelo.predict_proba(pd.DataFrame([_fila_chk]))[0][1] * 100
-                            if _prob_chk >= 50:
+                            if _prob_chk >= umbral_riesgo_pct:
                                 st.session_state['sim_ciclo'] = _idx
                                 st.rerun()
                                 break
@@ -762,37 +812,75 @@ with tab1:
 
         st.markdown("---")
 
-        # ── Umbrales configurables ──
+        # ── Umbrales configurables — controlan de verdad la decisión del modelo ──
+        # Fuente de verdad propia, en claves que NUNCA son gestionadas por un widget
+        # directamente — Streamlit puede limpiar el session_state de un widget (su
+        # `key`) en ciertos reruns programáticos (p. ej. tras st.rerun() disparado
+        # desde un botón dentro de tabs/columnas). Una entrada de session_state que
+        # solo nosotros escribimos, en cambio, nunca se borra sola.
+        st.session_state.setdefault('umbral_alerta_val', 15)
+        st.session_state.setdefault('umbral_riesgo_val', 50)
+
+        def _reset_sim_por_umbral():
+            # Si cambias el umbral con una simulación ya en marcha (y quizás ya pausada
+            # en un hito), sin esto la posición y las banderas de "ya detectado" se
+            # quedan congeladas del umbral anterior. Reiniciamos el motor actual desde
+            # el ciclo 0 para que la detección se recalcule desde cero con el nuevo umbral.
+            st.session_state['umbral_alerta_val'] = st.session_state['widget_umbral_alerta']
+            st.session_state['umbral_riesgo_val'] = st.session_state['widget_umbral_riesgo']
+            if st.session_state.get('simular_motor', False):
+                st.session_state['sim_ciclo'] = 0
+                st.session_state['sim_historial'] = {}
+                st.session_state['primera_anomalia_detectada'] = False
+                st.session_state['primer_riesgo_alto_detectado'] = False
+                st.session_state['fallo_nasa_mostrado'] = False
+                st.session_state['auto_play'] = False
+
         with st.expander("⚙ Configurar umbrales de alerta", expanded=False):
             st.markdown('''<div style="font-size:11px;color:#64748b;margin-bottom:8px">
-            Ajusta cuándo un sensor se marca como degradado (🟡) o en fallo (🔴).
-            Valores más bajos = más sensible. Valores más altos = más conservador.
+            Define a partir de qué probabilidad de fallo el sistema marca ALERTA (🟡) o RIESGO ALTO (🔴).
+            Umbrales más bajos = sistema más sensible (detecta antes, más falsas alarmas).
+            Umbrales más altos = sistema más conservador (menos falsas alarmas, detecta más tarde).
+            Si hay una simulación en marcha, cambiar cualquiera de los dos la reinicia desde el ciclo 0.
             </div>''', unsafe_allow_html=True)
-            umbral_amarillo = st.slider("🟡 Umbral degradación (amarillo)", 
-                                        min_value=0.01, max_value=0.5, value=0.05, step=0.01,
-                                        help="SHAP mínimo para marcar sensor en amarillo")
-            umbral_rojo = st.slider("🔴 Umbral fallo activo (rojo)", 
-                                    min_value=0.1, max_value=1.0, value=0.3, step=0.05,
-                                    help="SHAP mínimo para marcar sensor en rojo (solo cuando motor en riesgo)")
+            st.slider("🟡 Umbral de alerta (EN RIESGO)",
+                    min_value=5, max_value=40,
+                    value=int(st.session_state['umbral_alerta_val']),
+                    step=1, key='widget_umbral_alerta',
+                    on_change=_reset_sim_por_umbral,
+                    help="Probabilidad de fallo mínima para pasar de SEGURO a EN RIESGO")
+            st.slider("🔴 Umbral de riesgo alto",
+                    min_value=40, max_value=90,
+                    value=int(st.session_state['umbral_riesgo_val']),
+                    step=1, key='widget_umbral_riesgo',
+                    on_change=_reset_sim_por_umbral,
+                    help="Probabilidad de fallo a partir de la cual se considera riesgo alto / fallo inminente")
+            # umbral_alerta_pct/umbral_riesgo_pct (usados en TODO el resto del script)
+            # se leen siempre de nuestra propia clave persistente, nunca del widget.
+            umbral_alerta_pct = float(st.session_state['umbral_alerta_val'])
+            umbral_riesgo_pct = float(st.session_state['umbral_riesgo_val'])
 
         st.markdown("**🌡 Temperatura y presión**")
 
-        # Colorear sensores según SHAP values reales
-        _explainer_p = shap.TreeExplainer(modelo)
+        # Colorear sensores según SHAP values reales (umbrales fijos: es un resaltado
+        # visual de qué sensor pesa más, no una decisión — no confundir con los umbrales
+        # de arriba, que sí controlan el estado EN RIESGO/SEGURO)
+        _UMBRAL_SHAP_AMARILLO, _UMBRAL_SHAP_ROJO = 0.05, 0.3
+        _explainer_p = obtener_explainer(modelo)
         _sv_p = _explainer_p.shap_values(datos_motor)[0]
         def _shap_s(s):
             idxs = [i for i, f in enumerate(feature_names) if (f.startswith(s+'_') or f == s) and f != 'ciclo']
             return sum(_sv_p[i] for i in idxs)
         def _col(s):
             v = _shap_s(s)
-            if es_riesgo and v > umbral_rojo:    return "#ef4444"
-            elif v > umbral_amarillo:            return "#f59e0b"
-            else:                                return "#e2e8f0"
+            if es_riesgo and v > _UMBRAL_SHAP_ROJO:    return "#ef4444"
+            elif v > _UMBRAL_SHAP_AMARILLO:            return "#f59e0b"
+            else:                                      return "#e2e8f0"
         def _ale(s):
             v = _shap_s(s)
-            if es_riesgo and v > umbral_rojo:    return " 🔴"
-            elif v > umbral_amarillo:            return " 🟡"
-            else:                                return ""
+            if es_riesgo and v > _UMBRAL_SHAP_ROJO:    return " 🔴"
+            elif v > _UMBRAL_SHAP_AMARILLO:            return " 🟡"
+            else:                                      return ""
 
         sim_activa = st.session_state.get('simular_motor', False)
 
@@ -832,7 +920,6 @@ with tab1:
         else:
             st.slider("s15", -3.0, 3.0, step=0.1, key='sl_s15', label_visibility="collapsed", on_change=reset_modo)
 
-
         st.markdown("---")
 
         # Línea de tiempo compacta con miniaturas — solo durante simulación
@@ -844,9 +931,32 @@ with tab1:
             for k in sorted(_historial_ldt.keys()):
                 c = _historial_ldt[k]['ciclo']
                 p = _historial_ldt[k]['prob']
-                if _hito_a is None and p >= 15: _hito_a = (c, p)
-                if _hito_r is None and p >= 50: _hito_r = (c, p)
+                if _hito_a is None and p >= umbral_alerta_pct: _hito_a = (c, p)
+                if _hito_r is None and p >= umbral_riesgo_pct: _hito_r = (c, p)
                 if _hito_n is None and c >= _ciclo_riesgo_ldt: _hito_n = (c, p)
+
+            # ── Depuración: probabilidad ciclo a ciclo (no cada 5) alrededor de la
+            # primera alerta — permite ver si el salto es real y brusco en los datos,
+            # o si hay un problema de cálculo. Quitar una vez confirmado.
+            if _hito_a is not None:
+                with st.expander("🔍 Depurar — probabilidad ciclo a ciclo cerca de la Primera Alerta", expanded=False):
+                    _c_centro = _hito_a[0]
+                    _c_desde = max(1, _c_centro - 15)
+                    _c_hasta = min(_max_c_ldt, _c_centro + 3)
+                    _filas_dbg = motor_demo_df[
+                        (motor_demo_df['ciclo'] >= _c_desde) & (motor_demo_df['ciclo'] <= _c_hasta)
+                    ].sort_values('ciclo')
+                    _probs_dbg = modelo.predict_proba(_filas_dbg[feature_names])[:, 1] * 100
+                    _df_dbg = pd.DataFrame({
+                        'Ciclo': _filas_dbg['ciclo'].values,
+                        'Prob. fallo (%)': [f"{p:.2f}" for p in _probs_dbg],
+                    }).set_index('Ciclo')
+                    st.caption(
+                        f"Umbral de alerta actual: {umbral_alerta_pct:.0f}%. "
+                        "Si ves un salto de varios puntos entre dos ciclos consecutivos, "
+                        "es un cambio real y brusco en los sensores de este motor — no un error de cálculo."
+                    )
+                    st.dataframe(_df_dbg, use_container_width=True)
 
             def _mini_svg(hasta_ciclo, color_punto):
                 W, H, PAD = 200, 45, 6
@@ -862,10 +972,10 @@ with tab1:
                 ]
 
                 # Escala Y local a la ventana visible (con techo en el máximo de la ventana,
-                # nunca por debajo de 15) — evita que la línea se vea plana cuando toda la
-                # ventana está muy por debajo del 100%.
-                p_max_ventana = max((p for _, p in puntos), default=15)
-                p_techo = max(p_max_ventana * 1.15, 15)
+                # nunca por debajo del umbral de alerta) — evita que la línea se vea plana
+                # cuando toda la ventana está muy por debajo del 100%.
+                p_max_ventana = max((p for _, p in puntos), default=umbral_alerta_pct)
+                p_techo = max(p_max_ventana * 1.15, umbral_alerta_pct)
 
                 def _y(p):
                     return (H - PAD) - (min(p, p_techo) / p_techo) * (H - 2*PAD)
@@ -875,12 +985,12 @@ with tab1:
                 for c, p in puntos:
                     x = PAD + ((c - c_inicio) / (c_fin - c_inicio)) * (W - 2*PAD)
                     y = _y(p)
-                    col = '#22c55e' if p < 15 else ('#f59e0b' if p < 50 else '#ef4444')
+                    col = '#22c55e' if p < umbral_alerta_pct else ('#f59e0b' if p < umbral_riesgo_pct else '#ef4444')
                     if prev_x is not None:
                         segs.append(f'<line x1="{prev_x:.1f}" y1="{prev_y:.1f}" x2="{x:.1f}" y2="{y:.1f}" stroke="{col}" stroke-width="2"/>')
                     prev_x, prev_y = x, y
-                if p_techo >= 15:
-                    y15 = _y(15)
+                if p_techo >= umbral_alerta_pct:
+                    y15 = _y(umbral_alerta_pct)
                     segs.append(f'<line x1="{PAD}" y1="{y15:.1f}" x2="{W-PAD}" y2="{y15:.1f}" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.6"/>')
                 # El punto final ya marca el hito con su color — no hace falta una línea
                 # vertical extra, que además queda pegada al tramo más empinado de la curva.
@@ -951,6 +1061,58 @@ with tab1:
                     )
                 ldt_html += '</div></div>'
                 st.markdown(ldt_html, unsafe_allow_html=True)
+
+            # ── Comparativo: cómo evolucionó cada sensor en los 4 momentos clave ──
+            _ciclo_inicio_ldt = int(motor_demo_df['ciclo'].min())
+            _ciclo_actual_ldt = max((v['ciclo'] for v in _historial_ldt.values()), default=_ciclo_inicio_ldt)
+
+            def _valor_sensor_ldt(col, ciclo):
+                fila = motor_demo_df[motor_demo_df['ciclo'] == ciclo]
+                if fila.empty or col not in fila.columns:
+                    return None
+                return float(fila.iloc[0][col])
+
+            SENSOR_INFO_LDT = [
+                ('s11_norm', 'Presión estática HPC · s11'),
+                ('s4_norm',  'Temperatura salida LPT · s4'),
+                ('s12_norm', 'Ratio flujo combustible · s12'),
+                ('s7_norm',  'Presión salida HPC · s7'),
+                ('s15_norm', 'Ratio de bypass · s15'),
+            ]
+
+            col_inicio_lbl = f"Inicio (c.{_ciclo_inicio_ldt})"
+            col_alerta_lbl = f"Modelo alerta (c.{_hito_a[0]})" if _hito_a else "Modelo alerta"
+            col_real_lbl = f"Fallo real (c.{_max_c_ldt})"
+            col_nasa_lbl = f"Fallo NASA (c.{_ciclo_riesgo_ldt})"
+
+            _hitos_cols_ldt = [
+                (col_inicio_lbl, _ciclo_inicio_ldt, True),
+                (col_alerta_lbl, _hito_a[0] if _hito_a else None, _hito_a is not None),
+                (col_real_lbl, _max_c_ldt, _ciclo_actual_ldt >= _max_c_ldt),
+                (col_nasa_lbl, _ciclo_riesgo_ldt, _hito_n is not None),
+            ]
+
+            if any(disponible for _, _, disponible in _hitos_cols_ldt[1:]):
+                filas_cmp = []
+                for col_sensor, etiqueta in SENSOR_INFO_LDT:
+                    fila_cmp = {'Sensor': etiqueta}
+                    for nombre_col, ciclo_c, disponible in _hitos_cols_ldt:
+                        if disponible and ciclo_c is not None:
+                            v = _valor_sensor_ldt(col_sensor, ciclo_c)
+                            fila_cmp[nombre_col] = f"{v:+.2f}" if v is not None else "—"
+                        else:
+                            fila_cmp[nombre_col] = "—"
+                    filas_cmp.append(fila_cmp)
+
+                with st.expander("📊 Comparativo — evolución de sensores por hito", expanded=False):
+                    st.caption(
+                        "Valor normalizado de cada sensor en cada momento clave de la simulación. "
+                        "Las columnas se rellenan a medida que la simulación avanza."
+                    )
+                    st.dataframe(
+                        pd.DataFrame(filas_cmp).set_index('Sensor'),
+                        use_container_width=True,
+                    )
         # archivo = st.file_uploader("O sube un CSV con datos reales", type=['csv'],
         #                           help="El CSV debe tener las mismas columnas que el dataset de entrenamiento")
         # if archivo:
@@ -961,7 +1123,7 @@ with tab1:
         st.markdown('<div class="panel-title">Explicabilidad SHAP — factores de la predicción</div>', unsafe_allow_html=True)
         st.caption("Barras rojas → empujan hacia EN RIESGO · Barras azules → empujan hacia SEGURO")
 
-        explainer = shap.TreeExplainer(modelo)
+        explainer = obtener_explainer(modelo)
         shap_values = explainer.shap_values(datos_motor)
         # Renombrar features para el público: s11_norm → s11(val) · s11_norm_mm → s11(tend)
         def _renombrar(f):
@@ -979,11 +1141,17 @@ with tab1:
         )
         plt.rcParams.update({'figure.max_open_warning': 0})
         plt.close('all')
+        # Importante: fijamos el tamaño ANTES de dibujar. shap.plots.waterfall calcula
+        # la posición de las dos columnas de texto (valor y nombre del feature) en función
+        # del tamaño de figura vigente en el momento del dibujo. Si se redimensiona la
+        # figura después (fig.set_size_inches tras el plot), esas posiciones quedan
+        # calculadas para un tamaño distinto al final y el texto aparece desalineado /
+        # duplicado visualmente.
+        plt.figure(figsize=(7, 5))
         shap.plots.waterfall(explanation, show=False, max_display=min(8, len(feature_names)))
         fig_shap = plt.gcf()
         fig_shap.patch.set_facecolor('#0a0e1a')
-        fig_shap.set_size_inches(7, 5)
-        st.pyplot(fig_shap, use_container_width=True, clear_figure=True)
+        st.pyplot(fig_shap, use_container_width=True)
         plt.close('all')
 
         st.markdown("""
@@ -1056,10 +1224,8 @@ with tab1:
                 inicio = max(0, i - ventana + 1)
                 valores_mm.append(float(np.mean(valores_puntuales[inicio:i+1])))
 
-        import matplotlib.figure as mfig
-        fig5 = mfig.Figure(figsize=(8, 4))
+        fig5, ax5 = plt.subplots(figsize=(8, 4))
         fig5.patch.set_facecolor('#0a0e1a')
-        ax5 = fig5.add_subplot(111)
         ax5.set_facecolor('#0f1829')
 
         # Zona de riesgo del sensor
@@ -1105,7 +1271,8 @@ with tab1:
                            labelcolor='#94a3b8', framealpha=0.9)
 
         fig5.tight_layout()
-        st.pyplot(fig5, use_container_width=True, clear_figure=True)
+        st.pyplot(fig5, use_container_width=True)
+        plt.close(fig5)
 
         color_val = '#ef4444' if abs(val_actual) > abs(umbral_sensor) else '#22c55e'
         estado_val = 'en zona de riesgo' if abs(val_actual) > abs(umbral_sensor) else 'en zona segura'
@@ -1122,87 +1289,6 @@ with tab1:
         </div>
         ''', unsafe_allow_html=True)
 
-        # Gráfico de evolución durante simulación
-        if st.session_state.get('simular_motor', False):
-            historial = st.session_state.get('sim_historial', [])
-            if len(historial) > 1:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown('<div class="panel-title">📊 Evolución de riesgo — simulación en tiempo real</div>', unsafe_allow_html=True)
-
-                entradas_h = [historial[k] for k in sorted(historial.keys())]
-                ciclos_h = [h['ciclo'] for h in entradas_h]
-                probs_h  = [h['prob']  for h in entradas_h]
-
-                fig_h, ax_h = plt.subplots(figsize=(7, 3))
-                ax_h.axhspan(0,  15, alpha=0.08, color='#22c55e')
-                ax_h.axhspan(15, 50, alpha=0.06, color='#f59e0b')
-                ax_h.axhspan(50, 100, alpha=0.06, color='#ef4444')
-                ax_h.axhline(15, color='#f59e0b', linewidth=0.8, linestyle='--', alpha=0.5)
-                ax_h.axhline(50, color='#ef4444', linewidth=0.8, linestyle='--', alpha=0.5)
-
-                def _col_h(p):
-                    if p < 15:   return '#22c55e'
-                    elif p < 50: return '#f59e0b'
-                    else:        return '#ef4444'
-
-                for i in range(len(ciclos_h) - 1):
-                    ax_h.plot(ciclos_h[i:i+2], probs_h[i:i+2],
-                             color=_col_h(probs_h[i]), linewidth=2, alpha=0.9)
-
-                # Punto actual
-                ax_h.scatter([ciclos_h[-1]], [probs_h[-1]],
-                            color=_col_h(probs_h[-1]), s=60, zorder=5)
-
-                ax_h.set_xlabel('Ciclo', fontsize=9)
-                ax_h.set_ylabel('Prob. fallo (%)', fontsize=9)
-                ax_h.set_ylim(-5, 100)
-                ax_h.set_xlim(1, int(motor_demo_df['ciclo'].max()))
-                ax_h.spines['top'].set_visible(False)
-                ax_h.spines['right'].set_visible(False)
-                # Línea vertical donde empieza el riesgo REAL (RUL < 30)
-                ciclo_riesgo_real = int(motor_demo_df[motor_demo_df['target']==1]['ciclo'].min())
-                ax_h.axvline(ciclo_riesgo_real, color='#ffffff', linewidth=1.2,
-                            linestyle='--', alpha=0.4, label=f'Riesgo real (ciclo {ciclo_riesgo_real})')
-                ax_h.text(ciclo_riesgo_real + 3, 85, f'Real: EN RIESGO\n(ciclo {ciclo_riesgo_real})',
-                         fontsize=7, color='#ffffff', alpha=0.6)
-
-                ax_h.legend(fontsize=7, loc='upper left')
-                ax_h.text(int(motor_demo_df['ciclo'].max())-5, 7,  'SEGURO',    ha='right', fontsize=8, color='#22c55e', alpha=0.7)
-                ax_h.text(int(motor_demo_df['ciclo'].max())-5, 30, 'ALERTA',    ha='right', fontsize=8, color='#f59e0b', alpha=0.7)
-                ax_h.text(int(motor_demo_df['ciclo'].max())-5, 70, 'EN RIESGO', ha='right', fontsize=8, color='#ef4444', alpha=0.7)
-                st.pyplot(fig_h)
-                plt.close(fig_h)
-
-                # Panel predicción vs realidad
-                sim_idx = st.session_state.get('sim_ciclo', 0)
-                target_actual = int(motor_demo_df.iloc[sim_idx]['target'])
-                pred_actual = prob_pct >= 15.0
-
-                col_pred, col_real = st.columns(2)
-                with col_pred:
-                    color_p = "#ef4444" if pred_actual else "#22c55e"
-                    bg_p = "#1a0808" if pred_actual else "#0a1a0e"
-                    txt_p = "⚠ EN RIESGO" if pred_actual else "✓ SEGURO"
-                    st.markdown(f'''
-                    <div style="background:{bg_p};border:1px solid {color_p};border-radius:8px;padding:10px;text-align:center">
-                        <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:0.1em">🤖 Predicción modelo</div>
-                        <div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:{color_p};margin-top:4px">{txt_p}</div>
-                        <div style="font-size:11px;color:{color_p};opacity:0.8">{prob_pct:.1f}%</div>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                with col_real:
-                    color_r = "#ef4444" if target_actual else "#22c55e"
-                    bg_r = "#1a0808" if target_actual else "#0a1a0e"
-                    txt_r = "⚠ EN RIESGO" if target_actual else "✓ SEGURO"
-                    acierto = "✓ CORRECTO" if pred_actual == bool(target_actual) else "✗ ERROR"
-                    color_a = "#22c55e" if pred_actual == bool(target_actual) else "#ef4444"
-                    st.markdown(f'''
-                    <div style="background:{bg_r};border:1px solid {color_r};border-radius:8px;padding:10px;text-align:center">
-                        <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:0.1em">📋 Realidad NASA</div>
-                        <div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:{color_r};margin-top:4px">{txt_r}</div>
-                        <div style="font-size:11px;color:{color_a};font-weight:600">{acierto}</div>
-                    </div>
-                    ''', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════
 # TAB 2 — RENDIMIENTO
@@ -1546,17 +1632,17 @@ with tab4:
         fig4, ax4 = plt.subplots(figsize=(9, 5))
 
         # Zonas seguro / alerta / riesgo
-        ax4.axhspan(0, 15, alpha=0.08, color='#22c55e')
-        ax4.axhspan(15, 50, alpha=0.06, color='#f59e0b')
-        ax4.axhspan(50, 100, alpha=0.06, color='#ef4444')
-        ax4.axhline(15, color='#f59e0b', linewidth=1, linestyle='--', alpha=0.6, label='Umbral alerta (15%)')
-        ax4.axhline(50, color='#ef4444', linewidth=1, linestyle='--', alpha=0.6, label='Umbral riesgo alto (50%)')
+        ax4.axhspan(0, umbral_alerta_pct, alpha=0.08, color='#22c55e')
+        ax4.axhspan(umbral_alerta_pct, umbral_riesgo_pct, alpha=0.06, color='#f59e0b')
+        ax4.axhspan(umbral_riesgo_pct, 100, alpha=0.06, color='#ef4444')
+        ax4.axhline(umbral_alerta_pct, color='#f59e0b', linewidth=1, linestyle='--', alpha=0.6, label=f'Umbral alerta ({umbral_alerta_pct:.0f}%)')
+        ax4.axhline(umbral_riesgo_pct, color='#ef4444', linewidth=1, linestyle='--', alpha=0.6, label=f'Umbral riesgo alto ({umbral_riesgo_pct:.0f}%)')
 
         # Curva degradación — verde/amarillo/rojo
         def _color_curva(p):
-            if p < 15:   return '#22c55e'  # verde — seguro
-            elif p < 50: return '#f59e0b'  # amarillo — alerta
-            else:        return '#ef4444'  # rojo — riesgo alto
+            if p < umbral_alerta_pct:   return '#22c55e'  # verde — seguro
+            elif p < umbral_riesgo_pct: return '#f59e0b'  # amarillo — alerta
+            else:                       return '#ef4444'  # rojo — riesgo alto
 
         colores_linea = [_color_curva(p) for p in probas_curva]
         for i in range(len(pasos_eje) - 1):
@@ -1592,11 +1678,11 @@ with tab4:
         # Nota dinámica debajo del gráfico
         ciclo_umbral_nota = None
         for i, p in enumerate(probas_curva):
-            if p >= 15:
+            if p >= umbral_alerta_pct:
                 ciclo_umbral_nota = pasos_eje[i]
                 break
 
-        if ciclo_umbral_nota is not None and prob_actual < 15:
+        if ciclo_umbral_nota is not None and prob_actual < umbral_alerta_pct:
             st.markdown(f"""
             <div style="background:#0a1628;border:1px solid #0ea5e9;border-left:4px solid #0ea5e9;
                  border-radius:8px;padding:12px 18px;margin-top:8px">
@@ -1607,7 +1693,7 @@ with tab4:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        elif prob_actual >= 15:
+        elif prob_actual >= umbral_alerta_pct:
             st.markdown(f"""
             <div style="background:#1a0808;border:1px solid #ef4444;border-left:4px solid #ef4444;
                  border-radius:8px;padding:12px 18px;margin-top:8px">
@@ -1625,11 +1711,11 @@ with tab4:
         # Ciclo donde cruza el umbral
         ciclo_umbral = None
         for i, (c, p) in enumerate(zip(pasos_eje, probas_curva)):
-            if p >= 15:
+            if p >= umbral_alerta_pct:
                 ciclo_umbral = c
                 break
 
-        if prob_actual >= 15:
+        if prob_actual >= umbral_alerta_pct:
             st.markdown(f'''
             <div style="background:#1a0808;border:1px solid #ef4444;border-left:4px solid #ef4444;
                  border-radius:8px;padding:14px;margin-bottom:12px">
@@ -1676,7 +1762,7 @@ with tab4:
             ''', unsafe_allow_html=True)
 
         st.markdown('<div class="panel-title" style="margin-top:16px">Probabilidad actual</div>', unsafe_allow_html=True)
-        color_prob = "#ef4444" if prob_actual >= 15 else "#22c55e"
+        color_prob = "#ef4444" if prob_actual >= umbral_alerta_pct else "#22c55e"
         st.markdown(f'''
         <div style="text-align:center;padding:16px 0">
             <div style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;color:{color_prob}">
@@ -1687,17 +1773,16 @@ with tab4:
         ''', unsafe_allow_html=True)
 
         st.markdown('<div class="panel-title" style="margin-top:8px">Cómo leer la curva</div>', unsafe_allow_html=True)
-        st.markdown('''
+        st.markdown(f'''
         <div style="font-size:11px;color:#64748b;line-height:1.9">
-            <span style="color:#22c55e">━</span> Seguro · prob &lt; 15%<br>
-            <span style="color:#f59e0b">━</span> Alerta · prob 15-50%<br>
-            <span style="color:#ef4444">━</span> Riesgo alto · prob &gt; 50%<br>
+            <span style="color:#22c55e">━</span> Seguro · prob &lt; {umbral_alerta_pct:.0f}%<br>
+            <span style="color:#f59e0b">━</span> Alerta · prob {umbral_alerta_pct:.0f}-{umbral_riesgo_pct:.0f}%<br>
+            <span style="color:#ef4444">━</span> Riesgo alto · prob &gt; {umbral_riesgo_pct:.0f}%<br>
             <span style="color:#f59e0b">●</span> Estado actual del motor<br><br>
             El eje X muestra el % de degradación<br>
             desde el estado actual (0%) hasta<br>
             el máximo deterioro posible (100%).
-        </div>
-        ''', unsafe_allow_html=True)
+        </div>''', unsafe_allow_html=True)
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown("""
