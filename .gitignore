@@ -10,7 +10,7 @@ venv/
 data/raw/*.csv
 data/raw/*.zip
 data/raw/*.txt
-data/processed/
+data/processed/*
 !data/processed/motores_demo/
 
 # Modelos grandes
