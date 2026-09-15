@@ -39,7 +39,7 @@
 
 > *"El modelo me dice exactamente por qué: s15 — ratio de bypass — y s11 — presión del compresor de alta presión — están empujando hacia riesgo. No es una caja negra. Es una explicación que un técnico puede actuar.*
 >
-> *Ahora la parte más potente — pulso 'Simular motor real'."*
+> *Hasta aquí he estado moviendo sensores yo misma — es un escenario hipotético para entender cómo razona el modelo. Ahora la parte más potente — pulso 'Simular motor real'. Esto ya no es un escenario que yo invento: es la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, para comprobar si el modelo lo hubiera detectado a tiempo."*
 
 *[Arranca la simulación del motor #69]*
 
@@ -74,7 +74,7 @@
 
 *[Cambias a la pestaña Valor de negocio]*
 
-> *"La tercera pestaña — la que más le interesa a negocio — muestra que este modelo genera un valor neto estimado de 145 millones de dólares en el conjunto de test. Con un ahorro de 445 millones frente a no tener ningún sistema predictivo."*
+> *"La tercera pestaña — la que más le interesa a negocio — muestra que este modelo genera un valor neto estimado de 962 millones de dólares en el conjunto de test. Con un ahorro de más de 3.000 millones frente a no tener ningún sistema predictivo."*
 
 ---
 
@@ -86,9 +86,9 @@
 >
 > *Segundo, preprocesamiento: usamos KMeans con k=6 para detectar automáticamente las 6 condiciones operativas de FD002 y FD004, y normalizamos cada sensor dentro de su condición. Así el modelo aprende degradación real y no diferencias de régimen de vuelo.*
 >
-> *Tercero, el modelo: baseline con Regresión Logística (AUC 0.9881, Recall 95.7%, Precision 69.7%), luego XGBoost sin optimizar (AUC 0.9922, Recall 94.4%, Precision 77.7%). El problema: demasiadas falsas alarmas — el 22% de las alarmas eran falsas.*
+> *Tercero, el modelo: baseline con Regresión Logística (AUC 0.9881, Recall 95.7%, Precision 69.8%), luego XGBoost sin optimizar (AUC 0.9922, Recall 94.4%, Precision 77.8%). El problema: demasiadas falsas alarmas — más de un 22% de las alarmas eran falsas.*
 >
-> *Por eso usamos Optuna — optimización bayesiana que buscó automáticamente la mejor combinación de hiperparámetros para equilibrar Recall y Precision sin sacrificar uno por el otro. Resultado final: AUC 0.9940, Recall 91.2%, Precision 88.2% — de cada 100 alarmas, 88 son reales.*
+> *Por eso usamos Optuna — optimización bayesiana que buscó automáticamente la mejor combinación de hiperparámetros para equilibrar Recall y Precision sin sacrificar uno por el otro. Resultado final: AUC 0.9934, Recall 93.2%, Precision 82.7% — de cada 100 alarmas, 83 son reales.*
 >
 > *Cuarto, SHAP TreeExplainer para explicabilidad individual — cada predicción viene con los sensores que la causan.*
 >
@@ -100,13 +100,13 @@
 
 > *"Resultados del modelo final — XGBoost + Optuna:*
 >
-> - *AUC-ROC: 0.9940*
-> - *Recall: 91.2% — 91 de cada 100 fallos reales detectados*
-> - *Precision: 88.2% — 88 de cada 100 alarmas son reales*
-> - *F1-Score: 89.7%*
+> - *AUC-ROC: 0.9934*
+> - *Recall: 93.2% — 93 de cada 100 fallos reales detectados*
+> - *Precision: 82.7% — 83 de cada 100 alarmas son reales*
+> - *F1-Score: 87.7%*
 > - *Detección anticipada: 42 vuelos antes del fallo certificado por NASA*
-> - *Valor económico neto: +$145 millones en el conjunto de test*
-> - *Ahorro vs sin modelo: +$445 millones"*
+> - *Valor económico neto: +$962.3 millones en el conjunto de test*
+> - *Ahorro vs sin modelo: +$3.089,3 millones"*
 
 ---
 
@@ -118,6 +118,10 @@
 
 ## 🎤 Preguntas frecuentes
 
+**"¿Para qué sirven los dos modos de la app — manual y automático?"**
+> *"No compiten, se complementan. El modo manual, con los sliders y los presets 'Motor nuevo' / 'Motor en riesgo', es una foto fija de un escenario hipotético — sirve para explorar cómo razona el modelo, qué sensor pesa más en cada decisión, apoyado en el SHAP waterfall. Su valor es pedagógico: enseña por qué el modelo decide lo que decide.*
+> *El modo automático, 'Simular motor real', es distinto: reproduce ciclo a ciclo la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, y compara la predicción del modelo contra la verdad de terreno en cada ciclo. Eso aporta tres cosas que el manual no puede dar: validación con datos reales — no una suposición mía —, la dimensión temporal — de ahí sale la métrica de 42 vuelos de antelación, que es imposible de mostrar con un slider estático —, y una narrativa mucho más convincente para una audiencia no técnica: ver a un motor real degradarse y al modelo detectarlo a tiempo se recuerda mucho más que una barra SHAP."*
+
 **"¿Por qué XGBoost y no red neuronal?"**
 > *"XGBoost es superior en datos tabulares, compatible con SHAP y mucho más eficiente computacionalmente. Una LSTM capturaría mejor las secuencias temporales pero perdería la explicabilidad — crítica en aviación donde hay que justificar cada decisión de mantenimiento."*
 
@@ -128,13 +132,13 @@
 > *"FD002 y FD004 tienen 6 condiciones de vuelo no etiquetadas. Sin normalizarlas, el modelo aprendería diferencias entre condiciones en vez de degradación real. KMeans las detecta automáticamente con k=6 y normalizamos cada sensor dentro de su condición."*
 
 **"¿Por qué usaste Optuna?"**
-> *"Sin optimizar, el modelo tenía Precision del 77% — de cada 100 alarmas, 22 eran falsas. En aviación eso genera desconfianza en el sistema. Optuna encontró el equilibrio: bajó un poco el Recall (94% → 91%) pero la Precision subió de 77% a 88%. Un modelo más confiable en producción."*
+> *"Sin optimizar, el modelo tenía Precision del 77.8% — de cada 100 alarmas, más de 22 eran falsas. En aviación eso genera desconfianza en el sistema. Optuna encontró una mejor combinación de hiperparámetros: subió la Precision de 77.8% a 82.7% prácticamente sin sacrificar Recall (94.4% → 93.2%). Menos falsas alarmas, casi sin perder capacidad de detección."*
 
 **"¿Qué es el target y de dónde sale?"**
 > *"La NASA no etiqueta si un motor va a fallar — solo da los valores de sensores y los ciclos. Nosotros calculamos el RUL (Vida Útil Restante) restando el ciclo actual al ciclo máximo de cada motor, y creamos el target binario: si RUL < 30 ciclos → EN RIESGO. Esos 30 ciclos son la ventana de mantenimiento — el tiempo mínimo para actuar."*
 
-**"¿Los 600 fallos son los mismos que los 709 motores de entrenamiento?"**
-> *"No. Los 709 motores son para entrenar el modelo. Los 600 son los casos en riesgo del conjunto de test — 4.127 predicciones en total, de las cuales 600 tenían target=1 (EN RIESGO) y 3.527 estaban seguros."*
+**"¿Los casos en riesgo son los mismos motores que los 709 de entrenamiento?"**
+> *"No. Los 709 motores son para entrenar el modelo. En el conjunto de test hay 32.072 predicciones en total, de las cuales 4.254 tenían target=1 (EN RIESGO) y 27.818 estaban seguros. De esos 4.254 casos en riesgo, el modelo detectó 3.965 — el Recall del 93.2% que ya mencionamos."*
 
 **"¿Cómo escalarías a producción?"**
 > *"Stream de datos en tiempo real desde sensores IoT, alertas automáticas al equipo de mantenimiento y pipeline de reentrenamiento continuo con nuevos datos de flota."*
@@ -148,16 +152,16 @@
 
 | Métrica | Valor |
 |---|---|
-| AUC-ROC | 0.9940 |
-| Recall | 91.2% |
-| Precision | 88.2% |
-| F1-Score | 89.7% |
+| AUC-ROC | 0.9934 |
+| Recall | 93.2% |
+| Precision | 82.7% |
+| F1-Score | 87.7% |
 | Motores entrenamiento | 709 |
 | Registros totales | 160.000 |
-| Fallos detectados | 563 de 600 |
+| Fallos detectados | 3.965 de 4.254 |
 | Ciclos de antelación | 42 vuelos |
-| Valor neto modelo | +$145M |
-| Ahorro vs sin modelo | +$445M |
+| Valor neto modelo | +$962,3M |
+| Ahorro vs sin modelo | +$3.089,3M |
 
 ---
 

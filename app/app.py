@@ -1399,7 +1399,7 @@ with tab2:
     with col_right:
         st.markdown('<div class="panel-title">Matriz de confusión — conjunto de test</div>', unsafe_allow_html=True)
         fig2, ax2 = plt.subplots(figsize=(5, 4))
-        cm = np.array([[3476, 51], [37, 563]])
+        cm = np.array([[26991, 827], [289, 3965]])
         cell_bg = [['#0a1a0e', '#1a0808'], ['#1a0808', '#0a1a0e']]
         for i in range(2):
             for j in range(2):
@@ -1427,16 +1427,16 @@ with tab2:
         <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:12px 16px;margin-top:4px">
             <div style="font-size:10px;font-weight:600;color:#0ea5e9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Qué significa cada número</div>
             <div style="font-size:13px;color:#64748b;line-height:2.2">
-                <span style="color:#22c55e;font-weight:700">563</span> — fallos reales que el modelo detectó ✅<br>
-                <span style="color:#ef4444;font-weight:700">37</span> — fallos reales que el modelo <strong style="color:#e2e8f0">NO detectó</strong> ❌ <em>(Falsos Negativos — los más peligrosos)</em><br>
-                <span style="color:#22c55e;font-weight:700">3476</span> — motores sanos que el modelo clasificó bien ✅<br>
-                <span style="color:#f59e0b;font-weight:700">51</span> — motores sanos marcados como riesgo por error <em>(falsas alarmas)</em>
+                <span style="color:#22c55e;font-weight:700">3.965</span> — fallos reales que el modelo detectó ✅<br>
+                <span style="color:#ef4444;font-weight:700">289</span> — fallos reales que el modelo <strong style="color:#e2e8f0">NO detectó</strong> ❌ <em>(Falsos Negativos — los más peligrosos)</em><br>
+                <span style="color:#22c55e;font-weight:700">26.991</span> — motores sanos que el modelo clasificó bien ✅<br>
+                <span style="color:#f59e0b;font-weight:700">827</span> — motores sanos marcados como riesgo por error <em>(falsas alarmas)</em>
             </div>
         </div>
         <div style="background:#0a1628;border:1px solid #1e2d4a;border-left:3px solid #f59e0b;
              border-radius:6px;padding:10px 14px;margin-top:8px;font-size:11px;color:#64748b;line-height:1.8">
             📋 <strong style="color:#f59e0b">Estos números son históricos</strong> — resultado del examen final del modelo
-            sobre 4.127 registros reales de la NASA que nunca había visto durante el entrenamiento.<br>
+            sobre 32.072 registros reales de la NASA que nunca había visto durante el entrenamiento.<br>
             🔵 <strong style="color:#0ea5e9">La columna azul</strong> es en tiempo real — marca dónde cae la predicción
             del motor que tienes actualmente en los sliders.
         </div>
@@ -1467,7 +1467,7 @@ with tab3:
         st.markdown("""
         <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
             <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Valor neto del modelo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$145.3M</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$962.3M</div>
             <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
                 Beneficio real después de descontar los costes de <strong style="color:#e2e8f0">falsas alarmas</strong>
                 y <strong style="color:#e2e8f0">fallos no detectados</strong>. Lo que gana la aerolínea usando el modelo.
@@ -1478,11 +1478,11 @@ with tab3:
         st.markdown("""
         <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
             <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Ahorro vs sin modelo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$445.3M</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">+$3,089.3M</div>
             <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
                 Diferencia entre tener el modelo y no tener nada.
-                Sin sistema predictivo, los <strong style="color:#e2e8f0">600 fallos ocurren sin avisar</strong>
-                a $500K cada uno. El ahorro total frente a no tener ningún sistema es de <strong style="color:#e2e8f0">$445.3M</strong>.
+                Sin sistema predictivo, los <strong style="color:#e2e8f0">4.254 fallos ocurren sin avisar</strong>
+                a $500K cada uno. El ahorro total frente a no tener ningún sistema es de <strong style="color:#e2e8f0">$3,089.3M</strong>.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1490,11 +1490,11 @@ with tab3:
         st.markdown("""
         <div style="background:#0f1829;border:1px solid #1e2d4a;border-radius:8px;padding:14px 16px">
             <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Fallos evitados</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">563 / 600</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#0ea5e9">3.965 / 4.254</div>
             <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.7">
-                De 600 motores en riesgo real, el modelo detectó <strong style="color:#22c55e">563 a tiempo</strong>.
-                Los <strong style="color:#ef4444">37 restantes</strong> no mostraban patrón claro de degradación
-                — el límite inevitable de cualquier modelo. <span style="color:#22c55e">Recall 91.4%</span>
+                De 4.254 motores en riesgo real, el modelo detectó <strong style="color:#22c55e">3.965 a tiempo</strong>.
+                Los <strong style="color:#ef4444">289 restantes</strong> no mostraban patrón claro de degradación
+                — el límite inevitable de cualquier modelo. <span style="color:#22c55e">Recall 93.2%</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1505,10 +1505,10 @@ with tab3:
     with col_tbl:
         st.markdown('<div class="panel-title">Expected Value por categoría</div>', unsafe_allow_html=True)
         for nombre, detalle, total, cls in [
-            ("✅ Verdaderos Positivos", "563 casos · +$300K c/u", "+$168.9M", "good"),
-            ("⬜ Verdaderos Negativos", "3.476 casos · $0", "$0", ""),
-            ("⚠️ Falsos Positivos", "51 casos · -$100K c/u", "-$5.1M", "warn"),
-            ("🔴 Falsos Negativos", "37 casos · -$500K c/u", "-$18.5M", "bad"),
+            ("✅ Verdaderos Positivos", "3.965 casos · +$300K c/u", "+$1,189.5M", "good"),
+            ("⬜ Verdaderos Negativos", "26.991 casos · $0", "$0", ""),
+            ("⚠️ Falsos Positivos", "827 casos · -$100K c/u", "-$82.7M", "warn"),
+            ("🔴 Falsos Negativos", "289 casos · -$500K c/u", "-$144.5M", "bad"),
         ]:
             st.markdown(f"""
             <div class="mrow">
@@ -1534,13 +1534,13 @@ with tab3:
     with col_chart:
         st.markdown('<div class="panel-title">Impacto económico</div>', unsafe_allow_html=True)
         fig3, ax3 = plt.subplots(figsize=(7, 4.5))
-        conceptos = ['TP ×563\nfallos evitados', 'FP ×51\nfalsas alarmas', 'FN ×37\nno detectados', 'TOTAL\nneto']
-        valores = [168_900_000, -5_100_000, -18_500_000, 145_300_000]
+        conceptos = ['TP ×3965\nfallos evitados', 'FP ×827\nfalsas alarmas', 'FN ×289\nno detectados', 'TOTAL\nneto']
+        valores = [1_189_500_000, -82_700_000, -144_500_000, 962_300_000]
         colores = ['#22c55e', '#f59e0b', '#ef4444', '#0ea5e9']
         barras = ax3.bar(conceptos, [v/1e6 for v in valores], color=colores, alpha=0.85, width=0.5)
         ax3.axhline(0, color='#1e2d4a', linewidth=1)
         ax3.set_ylabel('Millones de dólares ($M)', fontsize=10)
-        ax3.set_ylim(-40, 210)
+        ax3.set_ylim(-250, 1350)
         ax3.spines['top'].set_visible(False)
         ax3.spines['right'].set_visible(False)
         for barra, valor in zip(barras, valores):
@@ -1564,11 +1564,11 @@ with tab3:
     leyendo los sensores en tiempo real. Lo entrenamos con <strong>709 motores reales de la NASA</strong> —
     el benchmark de referencia mundial para mantenimiento predictivo en aviación.<br><br>
 
-    El resultado: <strong>AUC-ROC de 0.994</strong>, detectando <strong>563 de 600 fallos reales</strong>
+    El resultado: <strong>AUC-ROC de 0.993</strong>, detectando <strong>3.965 de 4.254 fallos reales</strong>
     con un 42 ciclos de antelación de media — tiempo suficiente para programar el mantenimiento antes de que ocurra el fallo.<br><br>
 
-    Aplicado a una flota real, el modelo genera un valor neto estimado de <strong>$145 millones</strong>,
-    con un ahorro de <strong>$445 millones</strong> frente a no tener ningún sistema predictivo.
+    Aplicado a una flota real, el modelo genera un valor neto estimado de <strong>$962 millones</strong>,
+    con un ahorro de <strong>más de $3.000 millones</strong> frente a no tener ningún sistema predictivo.
     Cada fallo evitado vale $300.000. Cada fallo no detectado cuesta $500.000."
     </div>
     """, unsafe_allow_html=True)
@@ -1693,14 +1693,25 @@ with tab4:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        elif prob_actual >= umbral_alerta_pct:
+        elif prob_actual >= umbral_riesgo_pct:
             st.markdown(f"""
             <div style="background:#1a0808;border:1px solid #ef4444;border-left:4px solid #ef4444;
                  border-radius:8px;padding:12px 18px;margin-top:8px">
                 <div style="font-size:11px;color:#94a3b8;line-height:1.9">
-                    Este motor <strong style="color:#ef4444">ya se encuentra en zona de riesgo</strong>
+                    Este motor <strong style="color:#ef4444">ya está en riesgo alto</strong>
                     con su estado actual ({prob_actual:.1f}%).
                     Cualquier deterioro adicional acelera el camino al fallo.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif prob_actual >= umbral_alerta_pct:
+            st.markdown(f"""
+            <div style="background:#1a1204;border:1px solid #f59e0b;border-left:4px solid #f59e0b;
+                 border-radius:8px;padding:12px 18px;margin-top:8px">
+                <div style="font-size:11px;color:#94a3b8;line-height:1.9">
+                    Este motor <strong style="color:#f59e0b">ya está en zona de alerta</strong>
+                    con su estado actual ({prob_actual:.1f}%) — todavía no es riesgo alto,
+                    pero conviene vigilarlo de cerca. Un deterioro adicional lo llevaría a riesgo alto.
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1715,7 +1726,7 @@ with tab4:
                 ciclo_umbral = c
                 break
 
-        if prob_actual >= umbral_alerta_pct:
+        if prob_actual >= umbral_riesgo_pct:
             st.markdown(f'''
             <div style="background:#1a0808;border:1px solid #ef4444;border-left:4px solid #ef4444;
                  border-radius:8px;padding:14px;margin-bottom:12px">
@@ -1723,10 +1734,25 @@ with tab4:
                     Estado crítico
                 </div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#ef4444">
-                    Ya en riesgo ⚠
+                    Riesgo alto ⚠
                 </div>
                 <div style="font-size:10px;color:#7f1d1d;margin-top:4px">
                     mantenimiento urgente requerido
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+        elif prob_actual >= umbral_alerta_pct:
+            st.markdown(f'''
+            <div style="background:#1a1204;border:1px solid #f59e0b;border-left:4px solid #f59e0b;
+                 border-radius:8px;padding:14px;margin-bottom:12px">
+                <div style="font-size:10px;color:#f59e0b;font-weight:600;letter-spacing:0.1em;text-transform:uppercase">
+                    Estado
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#f59e0b">
+                    Alerta ⚠
+                </div>
+                <div style="font-size:10px;color:#78350f;margin-top:4px">
+                    vigilar de cerca, todavía no es crítico
                 </div>
             </div>
             ''', unsafe_allow_html=True)
