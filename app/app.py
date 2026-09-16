@@ -180,7 +180,7 @@ def cargar_datos_test():
 MOTORES_DISPONIBLES = {
     16: {'nombre': 'Motor #16', 'ciclos': 209, 'antelacion': 59},
     56: {'nombre': 'Motor #56', 'ciclos': 275, 'antelacion': 51},
-    69: {'nombre': 'Motor #69', 'ciclos': 362, 'antelacion': 42},
+    69: {'nombre': 'Motor #69', 'ciclos': 362, 'antelacion': 46},
     84: {'nombre': 'Motor #84', 'ciclos': 267, 'antelacion': 41},
     92: {'nombre': 'Motor #92', 'ciclos': 341, 'antelacion': 35},
 }
@@ -1565,7 +1565,7 @@ with tab3:
     el benchmark de referencia mundial para mantenimiento predictivo en aviación.<br><br>
 
     El resultado: <strong>AUC-ROC de 0.993</strong>, detectando <strong>3.965 de 4.254 fallos reales</strong>
-    con un 42 ciclos de antelación de media — tiempo suficiente para programar el mantenimiento antes de que ocurra el fallo.<br><br>
+    con un 46 ciclos de antelación de media — tiempo suficiente para programar el mantenimiento antes de que ocurra el fallo.<br><br>
 
     Aplicado a una flota real, el modelo genera un valor neto estimado de <strong>$962 millones</strong>,
     con un ahorro de <strong>más de $3.000 millones</strong> frente a no tener ningún sistema predictivo.

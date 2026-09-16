@@ -47,7 +47,7 @@
 >
 > *La línea roja marca el ciclo 333 — el momento en que la NASA certifica que este motor entró en zona de peligro.*
 >
-> *Fíjense aquí — en el ciclo 291, mucho antes del fallo, el modelo ya está disparando la alarma. Lo detectó con 42 vuelos de antelación. 42 vuelos de margen para programar el mantenimiento antes de que ocurra el fallo."*
+> *Fíjense aquí — en el ciclo 287, mucho antes del fallo, el modelo ya está disparando la alarma. Lo detectó con 46 vuelos de antelación. 46 vuelos de margen para programar el mantenimiento antes de que ocurra el fallo."*
 
 *[Al llegar al final aparece la nota azul automáticamente]*
 
@@ -104,7 +104,7 @@
 > - *Recall: 93.2% — 93 de cada 100 fallos reales detectados*
 > - *Precision: 82.7% — 83 de cada 100 alarmas son reales*
 > - *F1-Score: 87.7%*
-> - *Detección anticipada: 42 vuelos antes del fallo certificado por NASA*
+> - *Detección anticipada: 46 vuelos antes del fallo certificado por NASA*
 > - *Valor económico neto: +$962.3 millones en el conjunto de test*
 > - *Ahorro vs sin modelo: +$3.089,3 millones"*
 
@@ -120,7 +120,7 @@
 
 **"¿Para qué sirven los dos modos de la app — manual y automático?"**
 > *"No compiten, se complementan. El modo manual, con los sliders y los presets 'Motor nuevo' / 'Motor en riesgo', es una foto fija de un escenario hipotético — sirve para explorar cómo razona el modelo, qué sensor pesa más en cada decisión, apoyado en el SHAP waterfall. Su valor es pedagógico: enseña por qué el modelo decide lo que decide.*
-> *El modo automático, 'Simular motor real', es distinto: reproduce ciclo a ciclo la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, y compara la predicción del modelo contra la verdad de terreno en cada ciclo. Eso aporta tres cosas que el manual no puede dar: validación con datos reales — no una suposición mía —, la dimensión temporal — de ahí sale la métrica de 42 vuelos de antelación, que es imposible de mostrar con un slider estático —, y una narrativa mucho más convincente para una audiencia no técnica: ver a un motor real degradarse y al modelo detectarlo a tiempo se recuerda mucho más que una barra SHAP."*
+> *El modo automático, 'Simular motor real', es distinto: reproduce ciclo a ciclo la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, y compara la predicción del modelo contra la verdad de terreno en cada ciclo. Eso aporta tres cosas que el manual no puede dar: validación con datos reales — no una suposición mía —, la dimensión temporal — de ahí sale la métrica de 46 vuelos de antelación, que es imposible de mostrar con un slider estático —, y una narrativa mucho más convincente para una audiencia no técnica: ver a un motor real degradarse y al modelo detectarlo a tiempo se recuerda mucho más que una barra SHAP."*
 
 **"¿Por qué XGBoost y no red neuronal?"**
 > *"XGBoost es superior en datos tabulares, compatible con SHAP y mucho más eficiente computacionalmente. Una LSTM capturaría mejor las secuencias temporales pero perdería la explicabilidad — crítica en aviación donde hay que justificar cada decisión de mantenimiento."*
@@ -159,7 +159,7 @@
 | Motores entrenamiento | 709 |
 | Registros totales | 160.000 |
 | Fallos detectados | 3.965 de 4.254 |
-| Ciclos de antelación | 42 vuelos |
+| Ciclos de antelación | 46 vuelos |
 | Valor neto modelo | +$962,3M |
 | Ahorro vs sin modelo | +$3.089,3M |
 
@@ -169,7 +169,7 @@
 
 - [ ] App funcionando — botón "Motor en riesgo" muestra EN RIESGO
 - [ ] Simulación motor real probada de inicio a fin
-- [ ] Nota de 42 ciclos aparece al llegar al ciclo 362
+- [ ] Nota de 46 ciclos aparece al llegar al ciclo 362
 - [ ] GitHub abierto en otra pestaña
 - [ ] Practicar demo 2-3 veces
 - [ ] Números memorizados (tabla arriba)
