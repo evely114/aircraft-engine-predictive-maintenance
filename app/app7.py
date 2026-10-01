@@ -1118,33 +1118,13 @@ with tab1:
         else:
             explainer = obtener_explainer(modelo)
             shap_values = explainer.shap_values(datos_motor)
-            # Nombre descriptivo de cada sensor (los 14 sensores reales del modelo),
-            # para que el waterfall SHAP no muestre solo el código ("s15") sino a qué
-            # corresponde físicamente (p. ej. "Ratio de bypass · s15"), igual que ya
-            # se hace en el selector de la Tendencia del sensor y en el comparativo
-            # de hitos del simulador.
-            SENSOR_DESC = {
-                's2':  'Temperatura salida LPC',
-                's3':  'Temperatura salida HPC',
-                's4':  'Temperatura salida LPT',
-                's7':  'Presión salida HPC',
-                's8':  'Velocidad física del fan',
-                's9':  'Velocidad física del núcleo',
-                's11': 'Presión estática HPC',
-                's12': 'Ratio flujo combustible',
-                's13': 'Velocidad corregida del fan',
-                's14': 'Velocidad corregida del núcleo',
-                's15': 'Ratio de bypass',
-                's17': 'Entalpía de sangrado',
-                's20': 'Sangrado refrigerante HPT',
-                's21': 'Sangrado refrigerante LPT',
-            }
-            # Renombrar features para el público: s11_norm → Presión estática HPC · s11 (valor)
+            # Renombrar features para el público: s11_norm → s11(val) · s11_norm_mm → s11(tend)
             def _renombrar(f):
-                sufijo = ' (tendencia)' if f.endswith('_norm_mm') else ' (valor)' if f.endswith('_norm') else ''
-                codigo = f.replace('_norm_mm', '').replace('_norm', '')
-                desc = SENSOR_DESC.get(codigo)
-                return f'{desc} · {codigo}{sufijo}' if desc else f
+                if f.endswith('_norm_mm'):
+                    return f.replace('_norm_mm', ' (tendencia)')
+                elif f.endswith('_norm'):
+                    return f.replace('_norm', ' (valor)')
+                return f
             feature_names_legibles = [_renombrar(f) for f in datos_motor.columns.tolist()]
             explanation = shap.Explanation(
                 values=shap_values[0],

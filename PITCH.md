@@ -47,30 +47,33 @@
 >
 > *La línea roja marca el ciclo 333 — el momento en que la NASA certifica que este motor entró en zona de peligro.*
 >
-> *Fíjense aquí — en el ciclo 287, mucho antes del fallo, el modelo ya está disparando la alarma. Lo detectó con 46 vuelos de antelación. 46 vuelos de margen para programar el mantenimiento antes de que ocurra el fallo."*
+> *Fíjense aquí — en el ciclo 282, mucho antes del fallo, el modelo ya está disparando la alarma. Lo detectó con 51 vuelos de antelación. 51 vuelos de margen para programar el mantenimiento antes de que ocurra el fallo."*
 
 *[Al llegar al final aparece la nota azul automáticamente]*
 
 *[Seleccionas el motor #16 en el selector y arrancas nueva simulación]*
 
-> *"Ahora vamos con un motor diferente — el motor #16, que vivió solo 209 vuelos. Este es más interesante que el #69.*
+> *"Ahora vamos con un motor diferente — el motor #16, que vivió solo 209 vuelos. Aquí el patrón de fallo es distinto al del #69, y mucho más ruidoso.*
 >
-> *Fíjense — en el ciclo 120 el modelo detecta una anomalía y dispara la alarma. Pero luego los sensores se recuperan y vuelve a SEGURO. Lo mismo ocurre en el ciclo 160. Solo cuando llega al ciclo 180 y la degradación es sostenida, el modelo mantiene la alarma hasta el fallo.*
+> *Lo dejo correr en automático, y el simulador va parando solo en cada momento clave. Primera parada: ciclo 110 — una señal aislada del 17.9%, un solo ciclo, y enseguida vuelve a bajar. Esa es la primera alerta real: 70 vuelos de antelación sobre el fallo certificado.*
 >
-> *Esto demuestra tres cosas a la vez:*
-> *Primero — el modelo no es alarmista. Detecta anomalías pero vuelve a SEGURO si los sensores se recuperan.*
-> *Segundo — distingue picos temporales de degradación sostenida. Exactamente para lo que fue diseñado.*
-> *Tercero — robustez. Funciona bien incluso con motores con patrones complejos.*
+> *Sigo, y la siguiente parada es el ciclo 121 — ahí sí hay un salto grande: de 14% a 60% en un solo paso, entrando directo en riesgo alto.*
 >
-> *Eso es exactamente lo que queremos en aviación — un sistema que no grita lobo a la primera señal rara, sino que distingue ruido de degradación real."*
+> *Y aquí es donde se pone interesante: entre los ciclos 122 y 159 la probabilidad sube y baja repetidamente — llega a tocar zona segura varias veces, en los ciclos 127, 135, 143, 149, 152 y 158 — con otro pico por encima del 50% en el ciclo 137, que es donde el simulador vuelve a pararse. A partir del ciclo 160 las oscilaciones se hacen más frecuentes y más altas — 83% en el ciclo 161, 64% en el 163, 60% en el 167, 76% en el 176 — y desde el 177 ya no vuelve a bajar del 50%. El simulador pausa en cada uno de esos picos nuevos. Solo al final, en el ciclo 180, la NASA certifica el fallo, con el modelo ya en 96.8% de probabilidad.*
+>
+> *Fíjense también en este otro pico, en el ciclo 133 — casi llega al 44%, se acerca mucho al umbral de riesgo alto, pero no lo cruza, así que el simulador no se detiene ahí. Eso es intencional: el sistema solo pausa y alerta cuando de verdad se cruza esa línea roja del 50% — así evitamos saturar al técnico de falsas alarmas por cada sube-y-baja dentro de zona de alerta. Es la diferencia entre 'vigilar de cerca' y 'actuar ya'.*
+>
+> *Esto demuestra tres cosas a la vez: primero, que el modelo reacciona de forma instantánea ante una anomalía puntual, sin necesitar ver un patrón gradual para dispararse; segundo, que no se deja engañar por el ruido intermedio — cada vez que la probabilidad vuelve a subir después de haber bajado por debajo de riesgo alto, el sistema lo marca de nuevo, sin perder de vista el problema una vez que empezó; y tercero, que distingue ruido de señal — no confunde un pico que se queda en zona de alerta con una entrada real en riesgo alto.*
+>
+> *Eso es exactamente lo que queremos en aviación — un sistema que funciona tanto con fallos súbitos como con degradación ruidosa e intermitente, no uno afinado para un solo tipo de patrón."*
 
-*[Al llegar al final aparece la nota azul con los datos del motor #16 automáticamente]*
+*[Cada pausa automática del simulador muestra su propia nota — primera alerta, riesgo alto, y finalmente el fallo certificado por la NASA]*
 
-*[Cambias a la pestaña Degradación del motor]*
+*[Con la simulación pausada en el ciclo 110 — la primera alerta — cambias a la pestaña Degradación del motor]*
 
-> *"Este gráfico responde a: ¿cuánto deterioro aguanta este motor antes de entrar en zona crítica? Desde el estado actual, el modelo proyecta que con un 39% de deterioro adicional entraría en riesgo. A partir de ahí la degradación es rápida y el fallo es casi inevitable.*
+> *"Este gráfico ya no es una proyección hipotética — es la trayectoria REAL de probabilidad de este motor, de principio a fin, calculada con el mismo modelo. El tramo ya recorrido se ve atenuado y el punto naranja marca dónde estamos pausados ahora mismo, en el ciclo 110, con un 17.9%. Fíjense en lo que viene justo después, apenas 11 ciclos más adelante: el salto al 60%. Este motor parece tranquilo, pero está a un paso del quiebre.*
 >
-> *Importante: esto es predicción del modelo, no datos NASA. El modelo XGBoost evalúa escenarios hipotéticos de deterioro — no reproduce grabaciones reales."*
+> *A diferencia del motor #69, aquí no hace falta imaginar nada — es literalmente lo que le pasó a este motor, ciclo a ciclo."*
 
 *[Cambias a la pestaña Valor de negocio]*
 
@@ -104,7 +107,7 @@
 > - *Recall: 93.2% — 93 de cada 100 fallos reales detectados*
 > - *Precision: 82.7% — 83 de cada 100 alarmas son reales*
 > - *F1-Score: 87.7%*
-> - *Detección anticipada: 46 vuelos antes del fallo certificado por NASA*
+> - *Detección anticipada: 60 vuelos de media antes del fallo certificado por NASA (5 motores del simulador)*
 > - *Valor económico neto: +$962.3 millones en el conjunto de test*
 > - *Ahorro vs sin modelo: +$3.089,3 millones"*
 
@@ -120,7 +123,7 @@
 
 **"¿Para qué sirven los dos modos de la app — manual y automático?"**
 > *"No compiten, se complementan. El modo manual, con los sliders y los presets 'Motor nuevo' / 'Motor en riesgo', es una foto fija de un escenario hipotético — sirve para explorar cómo razona el modelo, qué sensor pesa más en cada decisión, apoyado en el SHAP waterfall. Su valor es pedagógico: enseña por qué el modelo decide lo que decide.*
-> *El modo automático, 'Simular motor real', es distinto: reproduce ciclo a ciclo la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, y compara la predicción del modelo contra la verdad de terreno en cada ciclo. Eso aporta tres cosas que el manual no puede dar: validación con datos reales — no una suposición mía —, la dimensión temporal — de ahí sale la métrica de 46 vuelos de antelación, que es imposible de mostrar con un slider estático —, y una narrativa mucho más convincente para una audiencia no técnica: ver a un motor real degradarse y al modelo detectarlo a tiempo se recuerda mucho más que una barra SHAP."*
+> *El modo automático, 'Simular motor real', es distinto: reproduce ciclo a ciclo la trayectoria real de un motor del dataset NASA, con su desenlace ya conocido, y compara la predicción del modelo contra la verdad de terreno en cada ciclo. Eso aporta tres cosas que el manual no puede dar: validación con datos reales — no una suposición mía —, la dimensión temporal — de ahí sale la métrica de antelación (60 vuelos de media entre los 5 motores del simulador), que es imposible de mostrar con un slider estático —, y una narrativa mucho más convincente para una audiencia no técnica: ver a un motor real degradarse y al modelo detectarlo a tiempo se recuerda mucho más que una barra SHAP."*
 
 **"¿Por qué XGBoost y no red neuronal?"**
 > *"XGBoost es superior en datos tabulares, compatible con SHAP y mucho más eficiente computacionalmente. Una LSTM capturaría mejor las secuencias temporales pero perdería la explicabilidad — crítica en aviación donde hay que justificar cada decisión de mantenimiento."*
@@ -159,17 +162,35 @@
 | Motores entrenamiento | 709 |
 | Registros totales | 160.000 |
 | Fallos detectados | 3.965 de 4.254 |
-| Ciclos de antelación | 46 vuelos |
+| Ciclos de antelación | 60 vuelos de media (5 motores del simulador) |
 | Valor neto modelo | +$962,3M |
 | Ahorro vs sin modelo | +$3.089,3M |
+
+---
+
+## 🔧 Los 5 motores del simulador — datos verificados ciclo a ciclo
+
+*Antelación = ciclo de la Primera Alerta (probabilidad ≥ 15%) hasta el ciclo donde la NASA certifica el fallo.*
+
+| Motor | Ciclos totales | NASA certifica | Primera alerta (ciclo · %) | Antelación |
+|---|---|---|---|---|
+| #16 | 209 | 180 | 110 · 17.9% | 70 vuelos |
+| #56 | 275 | 246 | 191 · 16.1% | 55 vuelos |
+| #69 | 362 | 333 | 282 · 16.7% | 51 vuelos |
+| #84 | 267 | 238 | 152 · 27.7% | 86 vuelos |
+| #92 | 341 | 312 | 274 · 22.9% | 38 vuelos |
+
+**Media: 60 vuelos de antelación.**
+
+Detalle del motor #16 (el más ruidoso — usado en la demo en vivo): primera alerta aislada en el ciclo 110 (17.9%), salto a riesgo alto en el ciclo 121 (60.2%), nuevo pico por encima del 50% en el ciclo 137 tras haber tocado zona segura varias veces (ciclos 127, 135, 143, 149, 152, 158), y desde el ciclo 160 oscilaciones más frecuentes y altas (161: 83%, 163: 64%, 167: 60%, 176: 76%, 177-179 siempre por encima del 50%) hasta la certificación de la NASA en el ciclo 180 (96.8%).
 
 ---
 
 ## ✅ Checklist antes de la presentación
 
 - [ ] App funcionando — botón "Motor en riesgo" muestra EN RIESGO
-- [ ] Simulación motor real probada de inicio a fin
-- [ ] Nota de 46 ciclos aparece al llegar al ciclo 362
+- [ ] Simulación motor real probada de inicio a fin (motor #69 y motor #16)
+- [ ] AUTO pausa solo en cada pico real de riesgo alto y en el fallo NASA — comprobado
 - [ ] GitHub abierto en otra pestaña
 - [ ] Practicar demo 2-3 veces
 - [ ] Números memorizados (tabla arriba)

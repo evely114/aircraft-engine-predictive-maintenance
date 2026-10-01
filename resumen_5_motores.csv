@@ -1,0 +1,6 @@
+motor,ciclos_totales,ciclo_nasa,ciclo_alerta,prob_alerta,antelacion_alerta_vuelos,ciclo_riesgo_alto,antelacion_riesgo_vuelos,deterioro_adicional_alerta_%,deterioro_adicional_riesgo_%
+16,209,180,110,17.92,70,121,59,0,16
+56,275,246,191,16.09,55,195,51,0,4
+69,362,333,282,16.71,51,291,42,0,15
+84,267,238,152,27.73,86,202,36,0,19
+92,341,312,274,22.92,38,288,24,0,5
